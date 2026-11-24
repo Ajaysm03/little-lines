@@ -54,6 +54,12 @@ export interface SessionStats {
   fills: number
   erases: number
   colors: Set<string>
+  /** Tools used, e.g. crayon, glitter, fill. */
+  tools: Set<string>
+}
+
+function emptyStats(): SessionStats {
+  return { strokes: 0, fills: 0, erases: 0, colors: new Set(), tools: new Set() }
 }
 
 export class ColoringEngine {
@@ -71,7 +77,7 @@ export class ColoringEngine {
 
   /** Changed since the last save. */
   dirty = false
-  stats: SessionStats = { strokes: 0, fills: 0, erases: 0, colors: new Set() }
+  stats: SessionStats = emptyStats()
 
   constructor(colorCanvas: HTMLCanvasElement, strokeCanvas: HTMLCanvasElement) {
     this.colorCanvas = colorCanvas
@@ -170,6 +176,7 @@ export class ColoringEngine {
     this.active = null
 
     const box = this.clampBox(a.box)
+    this.stats.tools.add(a.style.tool)
     if (a.style.tool === 'eraser') {
       this.stats.erases++
     } else {
@@ -389,6 +396,7 @@ export class ColoringEngine {
     this.color.drawImage(tmp, patch.x, patch.y)
     tmp.width = tmp.height = 0
     this.stats.fills++
+    this.stats.tools.add(mode === 'solid' ? 'fill' : `fill-${mode}`)
     this.stats.colors.add(mode === 'rainbow' ? 'rainbow' : color.toLowerCase())
     this.commit({ x0: patch.x, y0: patch.y, x1: patch.x + patch.width, y1: patch.y + patch.height })
     return true
@@ -506,7 +514,7 @@ export class ColoringEngine {
   /** Resets the per-save counters after their numbers have been logged. */
   takeStats(): SessionStats {
     const s = this.stats
-    this.stats = { strokes: 0, fills: 0, erases: 0, colors: new Set() }
+    this.stats = emptyStats()
     return s
   }
 }

@@ -1,6 +1,6 @@
-import { ArrowLeft, BarChart3, KeyRound, Lock, LogOut, Pencil, Plus } from 'lucide-react'
+import { ArrowLeft, BarChart3, ChevronRight, KeyRound, Lock, LogOut, Pencil, Plus } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { Avatar } from '../components/Avatar'
 import { Dialog } from '../components/Dialog'
 import { PinPad } from '../components/PinPad'
@@ -8,6 +8,7 @@ import { Button, ButtonLink } from '../components/ui'
 import { changeParentPin, MAX_PROFILES, verifyParentPin } from '../data/accounts'
 import { useProfiles } from '../state/hooks'
 import { useSession } from '../state/session-store'
+import { ChildSummaryRow } from './InsightsScreens'
 
 function formatDate(ms: number | null) {
   if (!ms) return 'Not yet'
@@ -96,15 +97,30 @@ export function GrownUps() {
         <h2 id="insights-h" className="font-display text-heading font-bold text-ink-deep">
           Insights
         </h2>
-        <div className="mt-4 flex items-start gap-4 rounded-3xl bg-paper px-5 py-5 ring-2 ring-inset ring-mist">
-          <BarChart3 className="mt-0.5 size-6 shrink-0 text-ink" />
-          <p className="text-graphite">
-            Time spent, pages finished and favorite colors for each child will show here once they start coloring.
-            {account.role === 'admin'
-              ? ' As the admin on this device you’ll also see totals across every family account.'
-              : null}
-          </p>
-        </div>
+        {profiles.length ? (
+          <ul className="mt-4 divide-y-2 divide-frost overflow-hidden rounded-3xl bg-paper ring-2 ring-inset ring-mist">
+            {profiles.map((p) => (
+              <ChildSummaryRow key={p.id} profile={p} />
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-4 text-graphite">Add a profile to see each child’s coloring time, pages and stickers.</p>
+        )}
+        {account.role === 'admin' ? (
+          <Link
+            to="/grown-ups/device"
+            className="mt-4 flex items-center gap-4 rounded-3xl bg-paper px-5 py-4 ring-2 ring-inset ring-mist hover:bg-frost/60"
+          >
+            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-frost text-ink">
+              <BarChart3 className="size-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold text-ink-deep">Device insights</span>
+              <span className="block text-[0.9375rem] text-graphite">Totals across every family account on this device</span>
+            </span>
+            <ChevronRight className="size-5 text-graphite" />
+          </Link>
+        ) : null}
       </section>
 
       <section className="mt-12" aria-labelledby="account-h">
@@ -125,11 +141,6 @@ export function GrownUps() {
             <LogOut className="size-5" /> Log out
           </Button>
         </div>
-        {account.role === 'admin' ? (
-          <p className="mt-4 text-[0.9375rem] text-graphite">
-            This is the admin account on this device, so book import and device-wide insights will appear here.
-          </p>
-        ) : null}
       </section>
 
       {pinStep ? (

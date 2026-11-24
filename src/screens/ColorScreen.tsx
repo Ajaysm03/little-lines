@@ -167,7 +167,15 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
             type: 'coloring',
             bookId: book.id,
             pageId: page.id,
-            data: { ms, strokes: stats.strokes, fills: stats.fills, erases: stats.erases, colors: [...stats.colors], progress },
+            data: {
+              ms,
+              strokes: stats.strokes,
+              fills: stats.fills,
+              erases: stats.erases,
+              colors: [...stats.colors],
+              tools: [...stats.tools],
+              progress,
+            },
           })
           const isDone = Boolean(art.completedAt)
           if (isDone && !finishedRef.current && !opts.finish) setToast('This page is finished! Keep adding color as long as you like.')

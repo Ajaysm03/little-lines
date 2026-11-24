@@ -38,12 +38,15 @@ interface PrefsState {
   stayInLines: Record<string, boolean>
   /** Per child: tools on the right, colors on the left. */
   leftHanded: Record<string, boolean>
+  /** Per child: stickers already celebrated, so each "new sticker" note shows once. */
+  seenStickers: Record<string, string[]>
   setSound(on: boolean): void
   setPenOnly(on: boolean): void
   markPenSeen(): void
   addRecentColor(profileId: string, color: string): void
   setStayInLines(profileId: string, on: boolean): void
   setLeftHanded(profileId: string, on: boolean): void
+  markStickersSeen(profileId: string, ids: string[]): void
 }
 
 /** Device-wide preferences. */
@@ -56,6 +59,7 @@ export const usePrefs = create<PrefsState>()(
       recentColors: {},
       stayInLines: {},
       leftHanded: {},
+      seenStickers: {},
       setSound: (sound) => set({ sound }),
       setPenOnly: (penOnly) => set({ penOnly }),
       markPenSeen: () => set({ penSeen: true }),
@@ -67,6 +71,10 @@ export const usePrefs = create<PrefsState>()(
         }),
       setStayInLines: (profileId, on) => set((s) => ({ stayInLines: { ...s.stayInLines, [profileId]: on } })),
       setLeftHanded: (profileId, on) => set((s) => ({ leftHanded: { ...s.leftHanded, [profileId]: on } })),
+      markStickersSeen: (profileId, ids) =>
+        set((s) => ({
+          seenStickers: { ...s.seenStickers, [profileId]: [...new Set([...(s.seenStickers[profileId] ?? []), ...ids])] },
+        })),
     }),
     { name: 'little-lines:prefs', storage: createJSONStorage(() => safeStorage) },
   ),

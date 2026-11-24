@@ -1,5 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo } from 'react'
+import { BUNDLED_BOOKS } from '../content/books'
+import { stickerStates, type StickerState } from '../data/achievements'
+import { computeDeviceStats, computeProfileStats, type DeviceStats, type ProfileStats } from '../data/analytics'
 import { db } from '../data/db'
 import { getLastRead, type LastRead } from '../data/events'
 import type { Artwork, Profile } from '../data/types'
@@ -47,4 +50,45 @@ export function useArtworkThumbs(artworks: Artwork[] | undefined): Map<string, s
   }, [artworks])
   useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls])
   return urls
+}
+
+export interface ProfileInsights {
+  stats: ProfileStats
+  stickers: StickerState[]
+  artworks: Artwork[]
+}
+
+/** Stats and stickers for one child (the active one by default). `undefined` while loading. */
+export function useProfileInsights(profileId?: string | null): ProfileInsights | undefined {
+  const active = useSession((s) => s.profileId)
+  const pid = profileId ?? active
+  const data = useLiveQuery(
+    async () =>
+      pid
+        ? {
+            events: await db.events.where('profileId').equals(pid).toArray(),
+            artworks: await db.artworks.where('profileId').equals(pid).toArray(),
+          }
+        : null,
+    [pid],
+  )
+  return useMemo(() => {
+    if (!data) return undefined
+    const stats = computeProfileStats(data.events, data.artworks, BUNDLED_BOOKS)
+    return { stats, stickers: stickerStates(stats), artworks: data.artworks }
+  }, [data])
+}
+
+/** Everything on this device, for the admin view. `undefined` while loading. */
+export function useDeviceInsights(): DeviceStats | undefined {
+  const data = useLiveQuery(async () => ({
+    accounts: await db.accounts.toArray(),
+    profiles: await db.profiles.toArray(),
+    events: await db.events.toArray(),
+    artworks: await db.artworks.toArray(),
+  }))
+  return useMemo(
+    () => (data ? computeDeviceStats(data.accounts, data.profiles, data.events, data.artworks) : undefined),
+    [data],
+  )
 }

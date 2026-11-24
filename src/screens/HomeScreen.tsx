@@ -1,18 +1,25 @@
-import { BookOpen } from 'lucide-react'
+import { BookOpen, PartyPopper } from 'lucide-react'
 import { Link } from 'react-router'
 import { Avatar } from '../components/Avatar'
 import { BookCard, PagePreview, PageTile, ProgressBar } from '../components/BookCard'
+import { FavoriteColors, WeekPanel } from '../components/insights'
+import { StickerBadge } from '../components/Sticker'
+import { crayonHex } from '../content/profile-options'
+import type { StickerState } from '../data/achievements'
 import { BUNDLED_BOOKS, colorablePages, getBook, type Book } from '../content/books'
 import type { LastRead } from '../data/events'
 import { bookProgress, progressLabel } from '../data/progress'
 import type { Artwork } from '../data/types'
-import { useActiveProfile, useArtworkThumbs, useLastRead, useProfileArtworks } from '../state/hooks'
+import { useActiveProfile, useArtworkThumbs, useLastRead, useProfileArtworks, useProfileInsights } from '../state/hooks'
+import { usePrefs } from '../state/prefs-store'
 
 export function HomeScreen() {
   const profile = useActiveProfile()
   const artworks = useProfileArtworks() ?? []
   const thumbs = useArtworkThumbs(artworks)
   const lastRead = useLastRead()
+  const insights = useProfileInsights()
+  const crayon = profile ? crayonHex(profile.color) : '#2b2f6b'
 
   const resume = lastRead ? getBook(lastRead.bookId) : undefined
   const pages = BUNDLED_BOOKS.flatMap((book) => colorablePages(book).map((page) => ({ book, page }))).slice(0, 8)
@@ -27,9 +34,30 @@ export function HomeScreen() {
         </div>
       </header>
 
+      {profile && insights ? <NewStickers profileId={profile.id} stickers={insights.stickers} /> : null}
+
       {lastRead !== undefined && (resume || BUNDLED_BOOKS[0]) ? (
         <ResumeCard book={resume ?? BUNDLED_BOOKS[0]} lastRead={resume ? lastRead : null} artworks={artworks} thumbs={thumbs} />
       ) : null}
+
+      {insights ? (
+        <section aria-labelledby="week-h" className="mt-12">
+          <h2 id="week-h" className="font-display text-heading font-bold text-ink-deep">
+            Your week
+          </h2>
+          <div className="mt-5">
+            <WeekPanel stats={insights.stats} color={crayon} />
+          </div>
+          {insights.stats.favoriteColors.length ? (
+            <div className="mt-6 flex flex-wrap items-center gap-4">
+              <span className="font-semibold text-ink-deep">Your favorite colors</span>
+              <FavoriteColors stats={insights.stats} />
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {insights ? <StickerShelf stickers={insights.stickers} /> : null}
 
       <section aria-labelledby="books-h" className="mt-12">
         <div className="flex items-baseline justify-between gap-4">
@@ -132,6 +160,74 @@ function ResumeCard({
           </Link>
         </div>
       </div>
+    </section>
+  )
+}
+
+/** Earned stickers, or the next few to aim for. */
+function StickerShelf({ stickers }: { stickers: StickerState[] }) {
+  const earned = stickers.filter((s) => s.earned)
+  const next = stickers
+    .filter((s) => !s.earned)
+    .sort((a, b) => b.progress - a.progress)
+    .slice(0, earned.length ? 2 : 4)
+  return (
+    <section aria-labelledby="stickers-h" className="mt-12">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 id="stickers-h" className="font-display text-heading font-bold text-ink-deep">
+          Stickers
+        </h2>
+        <Link to="/gallery#stickers" className="shrink-0 font-semibold text-ink underline decoration-[var(--crayon)] decoration-[3px] underline-offset-4">
+          See all {stickers.length}
+        </Link>
+      </div>
+      <p className="mt-1 text-graphite">
+        {earned.length
+          ? `You have ${earned.length} of ${stickers.length}. Here’s what to try next.`
+          : 'Earn stickers by coloring. Here’s how to get your first ones.'}
+      </p>
+      <ul className="mt-5 flex gap-4 overflow-x-auto pb-2">
+        {[...earned.slice(-4).reverse(), ...next].map((s) => (
+          <li key={s.id}>
+            <StickerBadge sticker={s} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+/** A banner for stickers earned since the child last looked. */
+function NewStickers({ profileId, stickers }: { profileId: string; stickers: StickerState[] }) {
+  const seen = usePrefs((s) => s.seenStickers[profileId]) ?? []
+  const markSeen = usePrefs((s) => s.markStickersSeen)
+  const fresh = stickers.filter((s) => s.earned && !seen.includes(s.id))
+  if (fresh.length === 0) return null
+  return (
+    <section
+      role="status"
+      className="mt-6 flex flex-wrap items-center gap-5 rounded-[28px] bg-[color-mix(in_srgb,var(--color-sunflower)_22%,white)] px-5 py-4 ring-2 ring-inset ring-sunflower/50"
+    >
+      <ul className="flex -space-x-3">
+        {fresh.slice(0, 3).map((s) => (
+          <li key={s.id}>
+            <StickerBadge sticker={s} size="sm" showText={false} />
+          </li>
+        ))}
+      </ul>
+      <div className="min-w-0 flex-1">
+        <p className="font-display text-[1.25rem] font-bold text-ink-deep">
+          {fresh.length === 1 ? 'You got a new sticker!' : `You got ${fresh.length} new stickers!`}
+        </p>
+        <p className="text-graphite">{fresh.map((s) => s.title).join(', ')}</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => markSeen(profileId, fresh.map((s) => s.id))}
+        className="inline-flex min-h-12 items-center gap-2 rounded-full bg-ink px-5 font-semibold text-white shadow-lift active:scale-95"
+      >
+        <PartyPopper className="size-5" /> Yay!
+      </button>
     </section>
   )
 }

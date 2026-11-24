@@ -68,9 +68,21 @@ Canvas 2D + Pointer Events (pressure/tilt), Web Worker region map (fill + stay-i
 - Left-handed layout (per child) in the editor's More menu, next to Clear page
 - Tests for color conversion and suggestions, tool specs, and the child-finished rule
 
-### Phase 5: Analytics, gallery & achievements
-- Event tracking; personal dashboard charts; parent view per child; admin view across accounts on the device
-- My Art gallery, badges and streaks
+### Phase 5: Analytics, gallery & achievements ✅
+- Coloring saves now also log the tools used; pure stats functions (`src/data/analytics.ts`) compute time per day,
+  streaks (current and best), pages finished/started, finished books, favorite colors, sessions and page turns
+- Home ("dashboard"): new-sticker banner, "Your week" panel with a minutes-per-day column chart, streak dots,
+  pages finished, time this week, favorite colors, and a sticker shelf showing what to try next
+- Charts follow the dataviz rules: single series, <=24 px columns with 4 px rounded tops, light crayons darkened
+  to 3:1 contrast, tooltips on hover and focus, and a "See the numbers" table under every chart
+- My art: a fridge-door gallery (magnets, slight tilts) with filters, a picture viewer, "Keep coloring" and
+  "Save picture" (full-size PNG with paper, coloring and line art); all 12 stickers with how to earn each
+- 12 stickers (first scribble, page finished, four pages, whole book, color explorer, rainbow, glitter, paint,
+  3- and 7-day streaks, an hour of color, page turner), each with progress
+- Grown-ups: per-child summary rows and a child insights page (week, all-time figures, books, recent pictures,
+  colors and tools, stickers); admins also get device insights (families, children, active children, 14-day
+  chart, most-opened pages, families table)
+- Tests for day bucketing, streaks, totals, stickers and device stats
 
 ### Phase 6: PDF import, ambience, offline & polish
 - Admin PDF import (split pages, mark covers, convert to line art)

@@ -9,6 +9,7 @@ import { GalleryScreen } from './screens/GalleryScreen'
 import { GrownUps } from './screens/GrownUps'
 import { IndexRedirect, ParentGate, PublicOnly, RequireAccount, RequireProfile, Root } from './screens/guards'
 import { HomeScreen } from './screens/HomeScreen'
+import { ChildInsightsScreen, DeviceInsightsScreen } from './screens/InsightsScreens'
 import { LibraryScreen } from './screens/LibraryScreen'
 import { NotFound } from './screens/NotFound'
 import { ProfileEditor } from './screens/ProfileEditor'
@@ -54,6 +55,22 @@ const router = createBrowserRouter([
             element: (
               <ParentGate>
                 <GrownUps />
+              </ParentGate>
+            ),
+          },
+          {
+            path: 'grown-ups/children/:id',
+            element: (
+              <ParentGate>
+                <ChildInsightsScreen />
+              </ParentGate>
+            ),
+          },
+          {
+            path: 'grown-ups/device',
+            element: (
+              <ParentGate>
+                <DeviceInsightsScreen />
               </ParentGate>
             ),
           },
