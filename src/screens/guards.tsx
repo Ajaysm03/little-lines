@@ -30,8 +30,9 @@ export function Splash() {
 }
 
 export function IndexRedirect() {
-  const { status, profileId } = useSession()
+  const { status, profileId, account } = useSession()
   if (status !== 'signed-in') return <Navigate to="/welcome" replace />
+  if (account && !account.hasParentPin) return <Navigate to="/setup-pin" replace />
   return <Navigate to={profileId ? '/home' : '/profiles'} replace />
 }
 
@@ -43,8 +44,11 @@ export function PublicOnly() {
 
 export function RequireAccount() {
   const status = useSession((s) => s.status)
+  const needsPin = useSession((s) => s.account !== null && !s.account.hasParentPin)
   const location = useLocation()
   if (status !== 'signed-in') return <Navigate to="/welcome" replace state={{ from: location.pathname }} />
+  // Google sign-ups choose their parent PIN before anything else.
+  if (needsPin && location.pathname !== '/setup-pin') return <Navigate to="/setup-pin" replace />
   return <Outlet />
 }
 

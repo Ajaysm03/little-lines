@@ -11,6 +11,7 @@ import { deleteImportedBook } from '../data/imported-books'
 import { useProfiles } from '../state/hooks'
 import { useBooks, useLibrary } from '../state/library-store'
 import { useSession } from '../state/session-store'
+import { useSync } from '../sync/sync'
 import { ChildSummaryRow } from './InsightsScreens'
 import { useTitle } from '../lib/useTitle'
 
@@ -123,19 +124,18 @@ export function GrownUps() {
               <BarChart3 className="size-5" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block font-semibold text-ink-deep">Device insights</span>
-              <span className="block text-[0.9375rem] text-graphite">Totals across every family account on this device</span>
+              <span className="block font-semibold text-ink-deep">All families</span>
+              <span className="block text-[0.9375rem] text-graphite">Totals across every family using Little Lines (admin only)</span>
             </span>
             <ChevronRight className="size-5 text-graphite" />
           </Link>
         ) : null}
       </section>
 
-      {account.role === 'admin' ? (
-        <section className="mt-12" aria-labelledby="books-h">
+      <section className="mt-12" aria-labelledby="books-h">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <h2 id="books-h" className="font-display text-heading font-bold text-ink-deep">
-              Books on this device
+              Your family’s books
             </h2>
             <ButtonLink to="/grown-ups/import" variant="secondary">
               <FileUp className="size-5" /> Add a book from a PDF
@@ -161,20 +161,27 @@ export function GrownUps() {
             ))}
           </ul>
         </section>
-      ) : null}
 
       <section className="mt-12" aria-labelledby="account-h">
         <h2 id="account-h" className="font-display text-heading font-bold text-ink-deep">
           Account
         </h2>
+        <p className="mt-2 text-graphite">
+          {account.signInMethods?.includes('google') && account.signInMethods.includes('password')
+            ? 'You sign in with Google or your password.'
+            : account.signInMethods?.includes('google')
+              ? 'You sign in with Google.'
+              : 'You sign in with your email and password.'}
+        </p>
+        <SyncStatus />
         <div className="mt-4 flex flex-wrap gap-3">
           <Button variant="secondary" onClick={() => setPinStep('current')}>
             <KeyRound className="size-5" /> Change parent PIN
           </Button>
           <Button
             variant="secondary"
-            onClick={() => {
-              logOut()
+            onClick={async () => {
+              await logOut()
               navigate('/welcome', { replace: true })
             }}
           >
@@ -187,7 +194,7 @@ export function GrownUps() {
         <Dialog label="Remove book" onClose={() => setRemoving(null)}>
           <h2 className="font-display text-heading font-bold text-ink-deep">Remove {removing.title}?</h2>
           <p className="mt-2 text-graphite">
-            It leaves the library for every family on this device, and any coloring of its pages is deleted too. This
+            It leaves your family’s library on every device, and any coloring of its pages is deleted too. This
             can’t be undone.
           </p>
           <div className="mt-6 flex flex-col gap-3">
@@ -239,5 +246,25 @@ export function GrownUps() {
         </Dialog>
       ) : null}
     </div>
+  )
+}
+
+/** "Saved to your account just now", or why it isn't yet. */
+function SyncStatus() {
+  const { status, lastSynced, pending } = useSync()
+  const text =
+    status === 'offline'
+      ? `You’re offline. ${pending ? `${pending} change${pending === 1 ? '' : 's'} will save` : 'Changes will save'} to your account when you’re back online.`
+      : status === 'error'
+        ? 'Couldn’t reach your account just now. Changes are kept on this device and will try again.'
+        : status === 'syncing'
+          ? 'Saving to your account…'
+          : lastSynced
+            ? `Saved to your account at ${new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(lastSynced)}.`
+            : 'Your family’s coloring saves to your account automatically.'
+  return (
+    <p role="status" className="mt-1 text-[0.9375rem] text-graphite">
+      {text}
+    </p>
   )
 }

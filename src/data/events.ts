@@ -1,3 +1,5 @@
+import { newId } from '../lib/id'
+import { enqueue } from '../sync/sync'
 import { db } from './db'
 import type { ActivityEvent } from './types'
 
@@ -18,7 +20,9 @@ export interface LogInput {
 
 export async function logEvent(input: LogInput): Promise<void> {
   try {
-    await db.events.add({ ...input, at: Date.now() })
+    const uid = newId()
+    await db.events.add({ ...input, uid, at: Date.now() })
+    await enqueue('event', uid)
   } catch {
     // Logging must never break reading or coloring.
   }

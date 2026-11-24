@@ -10,18 +10,20 @@ interface LibraryState {
   imported: Book[]
   books: Book[]
   loaded: boolean
-  load(): Promise<void>
+  load(accountId?: string | null): Promise<void>
 }
 
 let liveUrls: string[] = []
+let currentAccount: string | null = null
 
 export const useLibrary = create<LibraryState>((set) => ({
   imported: [],
   books: BUNDLED_BOOKS,
   loaded: false,
-  async load() {
+  async load(accountId) {
+    if (accountId !== undefined) currentAccount = accountId
     try {
-      const { books, urls } = await loadImportedBooks()
+      const { books, urls } = await loadImportedBooks(currentAccount)
       const old = liveUrls
       liveUrls = urls
       set({ imported: books, books: [...BUNDLED_BOOKS, ...books], loaded: true })

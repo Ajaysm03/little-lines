@@ -12,7 +12,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           <div className="w-full max-w-md">{children}</div>
         </div>
         <p className="max-w-md text-[0.875rem] text-graphite">
-          Everything is saved in this browser on this device. Use the same device to pick up where you left off.
+          Your family’s pages are saved to your account, so you can pick up on any device. Coloring keeps working offline too.
         </p>
       </main>
       <aside

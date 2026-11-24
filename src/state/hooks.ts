@@ -1,7 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { stickerStates, type StickerState } from '../data/achievements'
 import { computeDeviceStats, computeProfileStats, type DeviceStats, type ProfileStats } from '../data/analytics'
+import { api } from '../data/api'
 import { db } from '../data/db'
 import { getLastRead, type LastRead } from '../data/events'
 import type { Artwork, Profile } from '../data/types'
@@ -80,16 +81,21 @@ export function useProfileInsights(profileId?: string | null): ProfileInsights |
   }, [data, books])
 }
 
-/** Everything on this device, for the admin view. `undefined` while loading. */
-export function useDeviceInsights(): DeviceStats | undefined {
-  const data = useLiveQuery(async () => ({
-    accounts: await db.accounts.toArray(),
-    profiles: await db.profiles.toArray(),
-    events: await db.events.toArray(),
-    artworks: await db.artworks.toArray(),
-  }))
-  return useMemo(
-    () => (data ? computeDeviceStats(data.accounts, data.profiles, data.events, data.artworks) : undefined),
-    [data],
-  )
+/** Every family on the server, for the admin view. `undefined` while loading, `null` if it failed. */
+export function useAllFamilies(): { stats: DeviceStats | null; error: string | null } | undefined {
+  const [state, setState] = useState<{ stats: DeviceStats | null; error: string | null } | undefined>(undefined)
+  useEffect(() => {
+    let live = true
+    api
+      .adminOverview()
+      .then((o) => {
+        const accounts = o.families.map((f) => ({ id: f.id, name: f.name, email: f.email, role: f.role, lastLoginAt: f.lastLoginAt }))
+        live && setState({ stats: computeDeviceStats(accounts, o.profiles, o.events, o.pagesFinished), error: null })
+      })
+      .catch((err: unknown) => live && setState({ stats: null, error: err instanceof Error ? err.message : 'Couldn’t load.' }))
+    return () => {
+      live = false
+    }
+  }, [])
+  return state
 }

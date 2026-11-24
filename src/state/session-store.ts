@@ -1,7 +1,10 @@
 import { create } from 'zustand'
 import * as accounts from '../data/accounts'
+import { api, authClient, authErrorMessage } from '../data/api'
 import { readSession, writeSession } from '../data/session'
 import type { PublicAccount } from '../data/types'
+import { onBooksChanged, startSync } from '../sync/sync'
+import { useLibrary } from './library-store'
 
 /** How long the grown-ups area stays open after entering the parent PIN. */
 const PARENT_UNLOCK_MS = 10 * 60 * 1000
@@ -16,6 +19,13 @@ interface PinLock {
   until: number
 }
 
+export interface SignUpInput {
+  name: string
+  email: string
+  password: string
+  parentPin: string
+}
+
 interface SessionState {
   status: Status
   account: PublicAccount | null
@@ -24,16 +34,41 @@ interface SessionState {
   pinLocks: Record<string, PinLock>
 
   init(): Promise<void>
-  signUp(input: accounts.SignUpInput): Promise<void>
+  signUp(input: SignUpInput): Promise<void>
   logIn(email: string, password: string): Promise<void>
-  logOut(): void
+  /** Leaves for Google's sign-in page; comes back to the app signed in. */
+  logInWithGoogle(): Promise<void>
+  logOut(): Promise<void>
+  /** Saves the parent PIN (new Google accounts choose one after signing in). */
+  setParentPin(pin: string): Promise<void>
   selectProfile(profileId: string): Promise<void>
   leaveProfile(): void
-  /** Checks a PIN with a cool-down after repeated misses. `key` scopes the counter. */
   checkPin(key: string, verify: () => Promise<boolean>): Promise<'ok' | 'wrong' | 'locked'>
   unlockParent(pin: string): Promise<'ok' | 'wrong' | 'locked'>
   lockParent(): void
 }
+
+export class AuthError extends Error {}
+
+/**
+ * Loads the family from the server and starts syncing. `pickProfile` runs before
+ * the app is told it's signed in, so a restored child profile is in place before
+ * any screen decides where to go.
+ */
+async function enter(
+  set: (s: Partial<SessionState>) => void,
+  pickProfile: (accountId: string) => Promise<string | null> = async () => null,
+) {
+  const family = await api.me()
+  const account = await accounts.saveFamily(family)
+  const profileId = await pickProfile(account.id)
+  writeSession({ accountId: account.id, profileId })
+  set({ status: 'signed-in', account, profileId })
+  void useLibrary.getState().load(account.id)
+  startSync(account.id)
+}
+
+let booksListener: (() => void) | null = null
 
 export const useSession = create<SessionState>((set, get) => ({
   status: 'loading',
@@ -43,40 +78,74 @@ export const useSession = create<SessionState>((set, get) => ({
   pinLocks: {},
 
   async init() {
+    booksListener ??= onBooksChanged(() => void useLibrary.getState().load())
     const stored = readSession()
-    if (!stored) return set({ status: 'signed-out' })
-    const account = await accounts.getAccount(stored.accountId).catch(() => null)
-    if (!account) {
-      writeSession(null)
-      return set({ status: 'signed-out' })
-    }
-    // Only restore the child profile if it still exists and has no PIN to re-enter.
-    let profileId: string | null = null
-    if (stored.profileId) {
-      const list = await accounts.listProfiles(account.id)
+    // Only restore a child profile that still exists and has no PIN to re-enter.
+    const restoreProfile = async (accountId: string) => {
+      if (!stored?.profileId) return null
+      const list = await accounts.listProfiles(accountId)
       const p = list.find((x) => x.id === stored.profileId)
-      if (p && !p.pinHash) profileId = p.id
+      return p && !p.pinHash ? p.id : null
     }
-    writeSession({ accountId: account.id, profileId })
-    set({ status: 'signed-in', account, profileId })
+    try {
+      const { data, error } = await authClient.getSession()
+      if (error && error.status !== 401) throw error
+      if (!data) {
+        writeSession(null)
+        startSync(null)
+        set({ status: 'signed-out', account: null, profileId: null })
+        return
+      }
+      await enter(set, restoreProfile)
+    } catch {
+      // Offline: carry on with this device's copy of the last signed-in family.
+      const account = stored ? await accounts.getAccount(stored.accountId) : null
+      if (!account) return set({ status: 'signed-out' })
+      set({ status: 'signed-in', account, profileId: await restoreProfile(account.id) })
+      void useLibrary.getState().load(account.id)
+      startSync(account.id)
+    }
   },
 
-  async signUp(input) {
-    const account = await accounts.signUp(input)
-    writeSession({ accountId: account.id, profileId: null })
-    // Creating the account just set the parent PIN, so the grown-ups area starts unlocked.
-    set({ status: 'signed-in', account, profileId: null, parentUnlockedUntil: Date.now() + PARENT_UNLOCK_MS })
+  async signUp({ name, email, password, parentPin }) {
+    const { error } = await authClient.signUp.email({ name: name.trim(), email: email.trim(), password })
+    if (error) throw new AuthError(authErrorMessage(error))
+    await enter(set)
+    const account = await accounts.setParentPin(get().account!.id, parentPin)
+    // Choosing the PIN just now counts as unlocking the grown-ups area.
+    set({ account, parentUnlockedUntil: Date.now() + PARENT_UNLOCK_MS })
   },
 
   async logIn(email, password) {
-    const account = await accounts.logIn(email, password)
-    writeSession({ accountId: account.id, profileId: null })
-    set({ status: 'signed-in', account, profileId: null, parentUnlockedUntil: 0 })
+    const { error } = await authClient.signIn.email({ email: email.trim(), password })
+    if (error) throw new AuthError(authErrorMessage(error))
+    set({ parentUnlockedUntil: 0 })
+    await enter(set)
   },
 
-  logOut() {
+  async logInWithGoogle() {
+    const origin = window.location.origin
+    const { error } = await authClient.signIn.social({
+      provider: 'google',
+      callbackURL: `${origin}/`,
+      errorCallbackURL: `${origin}/welcome?error=google`,
+    })
+    if (error) throw new AuthError(authErrorMessage(error))
+  },
+
+  async logOut() {
+    startSync(null)
+    await authClient.signOut().catch(() => {})
     writeSession(null)
+    void useLibrary.getState().load(null)
     set({ status: 'signed-out', account: null, profileId: null, parentUnlockedUntil: 0 })
+  },
+
+  async setParentPin(pin) {
+    const account = get().account
+    if (!account) throw new AuthError('Log in first.')
+    const next = await accounts.setParentPin(account.id, pin)
+    set({ account: next, parentUnlockedUntil: Date.now() + PARENT_UNLOCK_MS })
   },
 
   async selectProfile(profileId) {

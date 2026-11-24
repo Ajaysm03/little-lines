@@ -1,5 +1,6 @@
 import type { Book } from '../content/books'
 import { newId } from '../lib/id'
+import { enqueue } from '../sync/sync'
 import { db } from './db'
 import type { StoredBook } from './types'
 
@@ -53,29 +54,37 @@ export async function saveImportedBook(input: NewBook): Promise<string> {
     pages,
     createdAt: Date.now(),
     createdBy: input.createdBy,
+    updatedAt: Date.now(),
   }
   await db.transaction('rw', db.books, db.bookFiles, async () => {
     await db.bookFiles.bulkAdd(files)
     await db.books.add(book)
   })
+  await enqueue('book', id)
   return id
 }
 
 /** Removes an imported book, its images, and every child's coloring of it. */
 export async function deleteImportedBook(id: string): Promise<void> {
+  const artworks = await db.artworks.filter((a) => a.bookId === id).primaryKeys()
   await db.transaction('rw', db.books, db.bookFiles, db.artworks, async () => {
     await db.bookFiles.where('bookId').equals(id).delete()
     await db.artworks.filter((a) => a.bookId === id).delete()
     await db.books.delete(id)
   })
+  await enqueue('book', id)
+  for (const a of artworks) await enqueue('artwork', String(a))
 }
 
 /**
  * Loads imported books as ordinary `Book`s whose images are object URLs.
  * Returns the URLs too, so the caller can revoke them when reloading.
  */
-export async function loadImportedBooks(): Promise<{ books: Book[]; urls: string[] }> {
-  const [stored, files] = await Promise.all([db.books.orderBy('createdAt').toArray(), db.bookFiles.toArray()])
+export async function loadImportedBooks(accountId: string | null): Promise<{ books: Book[]; urls: string[] }> {
+  if (!accountId) return { books: [], urls: [] }
+  const stored = (await db.books.orderBy('createdAt').toArray()).filter((b) => b.createdBy === accountId)
+  const ids = new Set(stored.map((b) => b.id))
+  const files = (await db.bookFiles.toArray()).filter((f) => ids.has(f.bookId))
   const blobs = new Map(files.map((f) => [f.key, f.blob]))
   const urls: string[] = []
   const urlFor = (key: string) => {

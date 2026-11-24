@@ -1,3 +1,4 @@
+import { enqueue } from '../sync/sync'
 import { db } from './db'
 import type { Artwork } from './types'
 
@@ -60,6 +61,9 @@ export async function saveArtwork(input: SaveInput): Promise<Artwork> {
       updatedAt: now,
     }
     await db.artworks.put(art)
+    return art
+  }).then(async (art) => {
+    await enqueue('artwork', art.id)
     return art
   })
 }

@@ -1,22 +1,26 @@
 export type Role = 'admin' | 'parent'
 
-/** A grown-up's sign-in. One per family; children use profiles under it. */
+/**
+ * The signed-in family, cached on the device so the app works offline. Sign-in
+ * itself (password, Google, reset) is handled by the server.
+ */
 export interface Account {
+  /** The server's user id. */
   id: string
-  /** Stored lower-cased; unique on this device. */
   email: string
   name: string
-  passwordHash: string
-  /** 4-digit PIN that unlocks the grown-ups area. */
-  parentPinHash: string
-  /** The first account created on a device is the admin. */
+  /** 4-digit PIN that unlocks the grown-ups area; null until set (e.g. after a Google sign-up). */
+  parentPinHash: string | null
+  /** The first family on the server is the admin. */
   role: Role
+  /** "password", "google". */
+  signInMethods?: string[]
   createdAt: number
   lastLoginAt: number
 }
 
 /** What the UI holds in memory: no hashes. */
-export type PublicAccount = Omit<Account, 'passwordHash' | 'parentPinHash'>
+export type PublicAccount = Omit<Account, 'parentPinHash'> & { hasParentPin: boolean }
 
 export interface Profile {
   id: string
@@ -28,6 +32,8 @@ export interface Profile {
   pinHash: string | null
   createdAt: number
   lastActiveAt: number | null
+  /** Last change, for syncing between devices. */
+  updatedAt?: number
 }
 
 /** One child's coloring of one page. Filled in from Phase 3. */
@@ -50,6 +56,8 @@ export interface Artwork {
 /** Activity log behind the dashboards. Filled in from Phase 5. */
 export interface ActivityEvent {
   id?: number
+  /** Unique across devices, so synced events are never doubled. */
+  uid?: string
   accountId: string
   profileId: string | null
   type: string
@@ -74,11 +82,21 @@ export interface StoredBook {
   coverThumb: string
   pages: Array<{ id: string; kind: 'front-cover' | 'line-art' | 'back-cover'; title: string; image: string; thumb: string }>
   createdAt: number
+  /** The family (account id) the book belongs to. */
   createdBy: string
+  updatedAt?: number
 }
 
 export interface BookFile {
   key: string
   bookId: string
   blob: Blob
+}
+
+/** A change waiting to be sent to the server. One entry per thing, so repeated edits collapse. */
+export interface OutboxEntry {
+  key: string
+  kind: 'profile' | 'artwork' | 'event' | 'book'
+  ref: string
+  at: number
 }

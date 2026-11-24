@@ -12,7 +12,7 @@ import { formatDuration } from '../data/analytics'
 import { db } from '../data/db'
 import { bookProgress, progressLabel } from '../data/progress'
 import type { Profile } from '../data/types'
-import { useArtworkThumbs, useDeviceInsights, useProfileInsights } from '../state/hooks'
+import { useAllFamilies, useArtworkThumbs, useProfileInsights } from '../state/hooks'
 import { getBook, useBooks } from '../state/library-store'
 import { useTitle } from '../lib/useTitle'
 import { useSession } from '../state/session-store'
@@ -206,19 +206,27 @@ export function ChildInsightsScreen() {
 
 export function DeviceInsightsScreen() {
   const role = useSession((s) => s.account?.role)
-  const stats = useDeviceInsights()
-  useTitle('Device insights')
+  const result = useAllFamilies()
+  useTitle('All families')
   if (role !== 'admin') return <NotFound />
-  if (!stats) return <Splash />
+  if (!result) return <Splash />
+  const stats = result.stats
+  if (!stats)
+    return (
+      <Page back={{ to: '/grown-ups', label: 'Grown-ups' }}>
+        <h1 className="mt-6 font-display text-title font-extrabold text-ink-deep">All families</h1>
+        <p className="mt-3 text-graphite">{result.error} Connect to the internet and open this page again.</p>
+      </Page>
+    )
   const dayFmt = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' })
   const longFmt = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
   const lastFmt = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
 
   return (
     <Page back={{ to: '/grown-ups', label: 'Grown-ups' }}>
-      <h1 className="mt-6 font-display text-title font-extrabold text-ink-deep">Device insights</h1>
+      <h1 className="mt-6 font-display text-title font-extrabold text-ink-deep">All families</h1>
       <p className="mt-1 max-w-prose text-graphite">
-        Every family account in this browser. Data stays on this device, so other devices aren’t counted.
+        Every family using Little Lines, from the server. Coloring activity covers the last 60 days.
       </p>
 
       <Section title="At a glance">

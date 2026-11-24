@@ -63,7 +63,7 @@ export function ImportScreen() {
 
   useEffect(() => () => void docRef.current?.loadingTask.destroy(), [])
 
-  if (account?.role !== 'admin') return <NotFound />
+  if (!account) return <NotFound />
 
   async function read(file: File) {
     setError(null)
@@ -176,7 +176,7 @@ export function ImportScreen() {
       <h1 className="mt-6 font-display text-title font-extrabold text-ink-deep">Add a book from a PDF</h1>
       <p className="mt-1 max-w-prose text-graphite">
         Pick which pages are covers and which are for coloring. Coloring pages are turned into clean black lines that
-        every child on this device can color.
+        every child in your family can color, on any device.
       </p>
 
       {step.name === 'choose' || step.name === 'reading' ? (
@@ -317,7 +317,7 @@ export function ImportScreen() {
             <Check className="size-6" strokeWidth={3} />
           </span>
           <h2 className="mt-4 font-display text-heading font-bold text-ink-deep">{step.title} is in the library</h2>
-          <p className="mt-2 text-graphite">Every child on this device can open it now.</p>
+          <p className="mt-2 text-graphite">Every child in your family can open it now, on any device.</p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Button onClick={() => navigate(`/books/${step.bookId}`)}>
               <BookOpen className="size-5" /> Open the book

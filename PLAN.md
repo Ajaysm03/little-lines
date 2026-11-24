@@ -99,6 +99,19 @@ Canvas 2D + Pointer Events (pressure/tilt), Web Worker region map (fill + stay-i
   44 px tap targets on filters; animations respect reduced motion
 - Node 22.13+ (pdf.js 6); tests for line-art conversion, page detection, palette and theme extraction
 
+## After Phase 6: cloud accounts
+- Neon Postgres behind a Vercel function (`api/index.ts` → `server/app.ts`); the same code runs inside the Vite
+  dev server, and `npm run db:local` gives a local Postgres (PGlite) with no sign-up
+- Better Auth: email/password, Google sign-in (shown when keys are set, joins same-email accounts), password
+  reset by email (Resend, or the link in the terminal without a key); Forgot password, Reset password and
+  "choose a parent PIN" (after Google sign-up) screens
+- Two-way sync: IndexedDB stays the offline copy, an outbox sends changes (profiles, colorings and their
+  images, activity, imported books), pulls bring other devices' changes, newest change wins
+- Admin "All families" view from the server; any family can import PDF books into its own library
+- `npm run db:migrate` / `db:seed`; integration tests run the real API against in-memory Postgres
+  (sign-up, login, reset, Google redirect, sync, family isolation, admin access)
+- Setup guide in SETUP.md
+
 ## Ideas for later
 Time-lapse replay and video export, stickers and stamps on pages, color-by-number, real-time co-coloring,
 symmetry tool, cloud sync (Supabase) so families share progress across devices.

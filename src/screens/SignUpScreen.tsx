@@ -1,10 +1,11 @@
 import { ArrowLeft } from 'lucide-react'
 import { useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { GoogleButton, OrDivider, useAuthOptions } from '../components/GoogleButton'
 import { PinPad } from '../components/PinPad'
 import { Button, FormError, TextField } from '../components/ui'
 import { MIN_PASSWORD_LENGTH, UserFacingError } from '../data/accounts'
-import { useSession } from '../state/session-store'
+import { AuthError, useSession } from '../state/session-store'
 import { AuthLayout } from './AuthLayout'
 import { useTitle } from '../lib/useTitle'
 
@@ -13,6 +14,9 @@ type FieldErrors = Partial<Record<keyof Fields, string>>
 
 export function SignUpScreen() {
   const signUp = useSession((s) => s.signUp)
+  const logInWithGoogle = useSession((s) => s.logInWithGoogle)
+  const options = useAuthOptions()
+  const [googleBusy, setGoogleBusy] = useState(false)
   useTitle('Create a family account')
   const navigate = useNavigate()
   const [step, setStep] = useState<'details' | 'pin'>('details')
@@ -40,12 +44,30 @@ export function SignUpScreen() {
       await signUp({ ...fields, parentPin })
       navigate('/profiles/new', { replace: true })
     } catch (err) {
-      if (err instanceof UserFacingError && err.field && err.field !== 'parentPin') {
-        setErrors({ [err.field]: err.message })
+      if (err instanceof AuthError && /email/i.test(err.message)) {
+        setErrors({ email: err.message })
+        setStep('details')
+      } else if (err instanceof AuthError && /password/i.test(err.message)) {
+        setErrors({ password: err.message })
         setStep('details')
       } else {
-        setFormError(err instanceof UserFacingError ? err.message : 'Something stopped the sign-up. Try again.')
+        setFormError(
+          err instanceof AuthError || err instanceof UserFacingError
+            ? err.message
+            : 'Couldn’t reach the server. Check your internet connection and try again.',
+        )
       }
+    }
+  }
+
+  async function google() {
+    setFormError(null)
+    setGoogleBusy(true)
+    try {
+      await logInWithGoogle() // leaves for Google; a parent PIN is chosen after coming back
+    } catch (err) {
+      setFormError(err instanceof AuthError ? err.message : 'Couldn’t start Google sign-in. Try again.')
+      setGoogleBusy(false)
     }
   }
 
@@ -57,7 +79,13 @@ export function SignUpScreen() {
           <p className="mt-3 max-w-[36ch] text-graphite">
             One grown-up account holds everyone’s profiles, pages and progress.
           </p>
-          <form onSubmit={onDetails} className="mt-8 flex flex-col gap-5" noValidate>
+          {options?.google ? (
+            <div className="mt-8">
+              <GoogleButton onClick={google} busy={googleBusy} label="Sign up with Google" />
+              <OrDivider />
+            </div>
+          ) : null}
+          <form onSubmit={onDetails} className={options?.google ? 'flex flex-col gap-5' : 'mt-8 flex flex-col gap-5'} noValidate>
             <TextField label="Your name" autoComplete="name" value={fields.name} onChange={set('name')} error={errors.name} />
             <TextField
               label="Email"
@@ -77,6 +105,7 @@ export function SignUpScreen() {
               error={errors.password}
               hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}
             />
+            <FormError>{formError}</FormError>
             <Button type="submit" size="lg" className="mt-1">
               Continue
             </Button>

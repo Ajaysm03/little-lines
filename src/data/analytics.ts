@@ -193,10 +193,10 @@ export interface DeviceStats {
 }
 
 export function computeDeviceStats(
-  accounts: Account[],
-  profiles: Profile[],
+  accounts: Array<Pick<Account, 'id' | 'name' | 'email' | 'role' | 'lastLoginAt'>>,
+  profiles: Array<Pick<Profile, 'id' | 'accountId'>>,
   events: ActivityEvent[],
-  artworks: Artwork[],
+  artworks: Artwork[] | number,
   now = Date.now(),
 ): DeviceStats {
   const days = lastDays(14, now).map((d) => ({ ...d, kids: new Set<string>() }))
@@ -244,7 +244,7 @@ export function computeDeviceStats(
     children: profiles.length,
     activeChildren7d: active7.size,
     totalMs,
-    pagesFinished: artworks.filter((a) => a.completedAt).length,
+    pagesFinished: typeof artworks === 'number' ? artworks : artworks.filter((a) => a.completedAt).length,
     avgSessionMs: allSessions.length ? allSessions.reduce((s, t) => s + t, 0) / allSessions.length : 0,
     dailyActive: days.map((d) => ({ key: d.key, date: d.date, count: d.kids.size })),
     popularPages: [...pages.values()].sort((a, b) => b.opens - a.opens || b.ms - a.ms).slice(0, 6),

@@ -13,6 +13,7 @@ import { ChildInsightsScreen, DeviceInsightsScreen } from './screens/InsightsScr
 import { LibraryScreen } from './screens/LibraryScreen'
 import { NotFound } from './screens/NotFound'
 import { ProfileEditor } from './screens/ProfileEditor'
+import { ForgotPasswordScreen, ResetPasswordScreen, SetupPinScreen } from './screens/PasswordScreens'
 import { ProfilePicker } from './screens/ProfilePicker'
 import { SignUpScreen } from './screens/SignUpScreen'
 import { WelcomeScreen } from './screens/WelcomeScreen'
@@ -31,6 +32,9 @@ const router = createBrowserRouter([
     element: <Root />,
     children: [
       { index: true, element: <IndexRedirect /> },
+      // Reachable signed in or out: the reset link opens from an email.
+      { path: 'forgot-password', element: <ForgotPasswordScreen /> },
+      { path: 'reset-password', element: <ResetPasswordScreen /> },
       {
         element: <PublicOnly />,
         children: [
@@ -41,6 +45,7 @@ const router = createBrowserRouter([
       {
         element: <RequireAccount />,
         children: [
+          { path: 'setup-pin', element: <SetupPinScreen /> },
           { path: 'profiles', element: <ProfilePicker /> },
           {
             path: 'profiles/new',
