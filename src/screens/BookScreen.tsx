@@ -5,13 +5,14 @@ import { PageTile, ProgressBar } from '../components/BookCard'
 import { ButtonLink } from '../components/ui'
 import { colorablePages, getBook } from '../content/books'
 import { bookProgress, progressLabel } from '../data/progress'
-import { useProfileArtworks } from '../state/hooks'
+import { useArtworkThumbs, useProfileArtworks } from '../state/hooks'
 import { NotFound } from './NotFound'
 
 export function BookScreen() {
   const { bookId } = useParams()
   const book = bookId ? getBook(bookId) : undefined
   const artworks = useProfileArtworks() ?? []
+  const thumbs = useArtworkThumbs(artworks)
   if (!book) return <NotFound />
   const pages = colorablePages(book)
   const progress = bookProgress(book, artworks)
@@ -64,7 +65,13 @@ export function BookScreen() {
         <ul className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
           {pages.map((page) => (
             <li key={page.id}>
-              <PageTile book={book} page={page} label={`Page ${book.pages.indexOf(page)}`} />
+              <PageTile
+                book={book}
+                page={page}
+                label={`Page ${book.pages.indexOf(page)}`}
+                colorUrl={thumbs.get(`${book.id}:${page.id}`)}
+                done={artworks.some((a) => a.bookId === book.id && a.pageId === page.id && a.completedAt)}
+              />
             </li>
           ))}
         </ul>

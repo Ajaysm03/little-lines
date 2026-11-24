@@ -1,16 +1,17 @@
 import { BookOpen } from 'lucide-react'
 import { Link } from 'react-router'
 import { Avatar } from '../components/Avatar'
-import { BookCard, PageTile, ProgressBar } from '../components/BookCard'
+import { BookCard, PagePreview, PageTile, ProgressBar } from '../components/BookCard'
 import { BUNDLED_BOOKS, colorablePages, getBook, type Book } from '../content/books'
 import type { LastRead } from '../data/events'
 import { bookProgress, progressLabel } from '../data/progress'
 import type { Artwork } from '../data/types'
-import { useActiveProfile, useLastRead, useProfileArtworks } from '../state/hooks'
+import { useActiveProfile, useArtworkThumbs, useLastRead, useProfileArtworks } from '../state/hooks'
 
 export function HomeScreen() {
   const profile = useActiveProfile()
   const artworks = useProfileArtworks() ?? []
+  const thumbs = useArtworkThumbs(artworks)
   const lastRead = useLastRead()
 
   const resume = lastRead ? getBook(lastRead.bookId) : undefined
@@ -27,7 +28,7 @@ export function HomeScreen() {
       </header>
 
       {lastRead !== undefined && (resume || BUNDLED_BOOKS[0]) ? (
-        <ResumeCard book={resume ?? BUNDLED_BOOKS[0]} lastRead={resume ? lastRead : null} artworks={artworks} />
+        <ResumeCard book={resume ?? BUNDLED_BOOKS[0]} lastRead={resume ? lastRead : null} artworks={artworks} thumbs={thumbs} />
       ) : null}
 
       <section aria-labelledby="books-h" className="mt-12">
@@ -55,7 +56,12 @@ export function HomeScreen() {
         <ul className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
           {pages.map(({ book, page }) => (
             <li key={`${book.id}:${page.id}`}>
-              <PageTile book={book} page={page} />
+              <PageTile
+                book={book}
+                page={page}
+                colorUrl={thumbs.get(`${book.id}:${page.id}`)}
+                done={artworks.some((a) => a.bookId === book.id && a.pageId === page.id && a.completedAt)}
+              />
             </li>
           ))}
         </ul>
@@ -68,7 +74,17 @@ export function HomeScreen() {
  * The book this child was last in, laid out like the reader: a page lying on
  * the book's own night-blue desk. New children get their first book here.
  */
-function ResumeCard({ book, lastRead, artworks }: { book: Book; lastRead: LastRead | null; artworks: Artwork[] }) {
+function ResumeCard({
+  book,
+  lastRead,
+  artworks,
+  thumbs,
+}: {
+  book: Book
+  lastRead: LastRead | null
+  artworks: Artwork[]
+  thumbs: Map<string, string>
+}) {
   const index = lastRead ? Math.min(lastRead.pageIndex, book.pages.length - 1) : 0
   const page = book.pages[index]
   const progress = bookProgress(book, artworks)
@@ -93,9 +109,11 @@ function ResumeCard({ book, lastRead, artworks }: { book: Book; lastRead: LastRe
           aria-hidden
           className="mx-auto w-36 shrink-0 -rotate-3 transition-transform duration-200 hover:-rotate-1 sm:mx-0 sm:w-40"
         >
-          <span className="block aspect-[210/297] overflow-hidden rounded-[4px] bg-paper shadow-[0_18px_40px_-14px_rgb(0_0_0/0.6)]">
-            <img src={page.thumb} alt="" className="size-full object-cover" draggable={false} />
-          </span>
+          <PagePreview
+            page={page}
+            colorUrl={thumbs.get(`${book.id}:${page.id}`)}
+            className="shadow-[0_18px_40px_-14px_rgb(0_0_0/0.6)]"
+          />
         </Link>
         <div className="min-w-0 flex-1">
           <p className="text-[0.9375rem] text-white/75">{lastRead ? 'Pick up where you left off' : 'Your first book'}</p>

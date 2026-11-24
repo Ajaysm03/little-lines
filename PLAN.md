@@ -41,10 +41,18 @@ Canvas 2D + Pointer Events (pressure/tilt), Web Worker region map (fill + stay-i
   progress badges; Book page: open-the-book button, progress, page picker
 - Tests for progress roll-up, last-read lookup and spread layout
 
-### Phase 3: Coloring engine (core)
-- Full-screen editor from a tapped page; layered canvas with line art always on top
-- Pressure-sensitive pencil, pen-only palm rejection, eraser, bucket fill, undo/redo, pinch-zoom/pan
-- Palette + picker, size/opacity, auto-save per child/page, colored pages render in the flip book
+### Phase 3: Coloring engine (core) ✅
+- Editor at `/color/:book/:page`: color canvas + in-progress stroke canvas under the line-art image, so lines stay on top
+- Tools: pencil and brush (pressure-sensitive with Apple Pencil/stylus, smoothed curves, coalesced events), bucket fill,
+  eraser; 4 sizes each, strength (opacity) slider, book palette + any-color picker + recent colors
+- Region map built in a Web Worker (≈400 regions per page, ~45 ms in Node); fill bleeds 2 px under lines so no halos
+- Undo/redo as pixel patches (60 steps / 64 MB cap); clear page (undoable)
+- Input: one finger draws, two-finger pinch/pan, two-finger tap undo, three-finger tap redo, trackpad/wheel zoom and pan,
+  zoom buttons, keyboard shortcuts; "Pencil only" palm-rejection mode that switches on the first time a pen is used
+- Auto-save 1.2 s after each change, on leaving and when the tab is hidden: full-res PNG layer + 800 px thumbnail +
+  progress (share of colorable area, margin excluded); a page counts as finished at 80%
+- Colorings show in the flip book, on page tiles and the resume card; coloring sessions are logged for Phase 5
+- Tests for region labelling (incl. a real page), fill bleed, history caps, zoom math and save/finish rules
 
 ### Phase 4: Advanced tools & assists
 - Crayon, colored pencil, marker, watercolor, glitter brushes; gradient fill; eyedropper

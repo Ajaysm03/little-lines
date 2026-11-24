@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { useEffect, useMemo } from 'react'
 import { db } from '../data/db'
 import { getLastRead, type LastRead } from '../data/events'
 import type { Artwork, Profile } from '../data/types'
@@ -29,4 +30,21 @@ export function useProfileArtworks(): Artwork[] | undefined {
 export function useLastRead(): LastRead | null | undefined {
   const profileId = useSession((s) => s.profileId)
   return useLiveQuery(() => (profileId ? getLastRead(profileId) : null), [profileId])
+}
+
+/**
+ * Object URLs for each colored page's thumbnail (transparent PNG of the coloring),
+ * keyed `${bookId}:${pageId}`. Revoked when the artworks change.
+ */
+export function useArtworkThumbs(artworks: Artwork[] | undefined): Map<string, string> {
+  const urls = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const a of artworks ?? []) {
+      const blob = a.thumb ?? a.colorLayer
+      if (blob) map.set(`${a.bookId}:${a.pageId}`, URL.createObjectURL(blob))
+    }
+    return map
+  }, [artworks])
+  useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls])
+  return urls
 }

@@ -5,7 +5,7 @@ import type { ActivityEvent } from './types'
  * Activity log. Phase 2 records reading (to resume where a child left off);
  * Phase 5 adds coloring events and builds the dashboards from this table.
  */
-export type EventType = 'book_open' | 'page_turn'
+export type EventType = 'book_open' | 'page_turn' | 'color_open' | 'coloring'
 
 export interface LogInput {
   accountId: string
@@ -30,7 +30,7 @@ export interface LastRead {
   at: number
 }
 
-const READING: ReadonlySet<string> = new Set<EventType>(['book_open', 'page_turn'])
+const READING: ReadonlySet<string> = new Set<EventType>(['book_open', 'page_turn', 'color_open'])
 
 /** The book and page this child was last looking at, newest first. */
 export async function getLastRead(profileId: string): Promise<LastRead | null> {

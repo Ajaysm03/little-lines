@@ -6,8 +6,7 @@ import { cn } from '../components/ui'
 import { getBook, type Book } from '../content/books'
 import { logEvent } from '../data/events'
 import { visiblePages } from '../lib/spread'
-import type { Artwork } from '../data/types'
-import { useProfileArtworks } from '../state/hooks'
+import { useArtworkThumbs, useProfileArtworks } from '../state/hooks'
 import { usePrefs } from '../state/prefs-store'
 import { useSession } from '../state/session-store'
 import { Splash } from './guards'
@@ -50,10 +49,10 @@ function Reader({ book }: { book: Book }) {
   const visible = visiblePages(view, count)
 
   // The child's coloring for each page, as object URLs the book can display.
-  const colorUrls = useColorLayerUrls(artworks, book.id)
+  const thumbs = useArtworkThumbs(artworks)
   const pages = useMemo<FlipPage[]>(
-    () => book.pages.map((p) => ({ ...p, colorLayer: colorUrls.get(p.id) ?? null })),
-    [book, colorUrls],
+    () => book.pages.map((p) => ({ ...p, colorLayer: thumbs.get(`${book.id}:${p.id}`) ?? null })),
+    [book, thumbs],
   )
 
   useEffect(() => {
@@ -226,18 +225,4 @@ function TurnButton({
       <Icon className="size-7" />
     </button>
   )
-}
-
-/** Object URLs for each page's saved color layer, revoked when they change. */
-function useColorLayerUrls(artworks: Artwork[] | undefined, bookId: string): Map<string, string> {
-  const urls = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const a of artworks ?? []) {
-      const blob = a.thumb ?? a.colorLayer
-      if (a.bookId === bookId && blob) map.set(a.pageId, URL.createObjectURL(blob))
-    }
-    return map
-  }, [artworks, bookId])
-  useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls])
-  return urls
 }
