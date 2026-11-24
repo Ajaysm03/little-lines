@@ -1,9 +1,9 @@
 import { usePrefs } from '../state/prefs-store'
 
 /**
- * Sound effects made with the Web Audio API, so there are no audio files to
- * license or download. Browsers only allow audio after a tap or key press,
- * and every sound here is triggered by one.
+ * Sound effects played with the Web Audio API: recorded page turns from
+ * public/sounds, and synthesized sounds for everything else. Browsers only
+ * allow audio after a tap or key press, and every sound here is triggered by one.
  */
 type WebkitWindow = Window & { webkitAudioContext?: typeof AudioContext }
 
@@ -40,10 +40,94 @@ function noiseBuffer(ac: AudioContext): AudioBuffer {
   return buf
 }
 
-/** A page sweeping over: a filtered swish with paper flutter, then a soft landing. */
+/**
+ * Recorded paper sounds. page-turns.mp3 holds eight single page turns one
+ * after another (the slices below); riffle.mp3 is a fast flick through many
+ * pages, used when the book jumps to a far page. They are decoded once, on
+ * the first sound, and the synthesized flip below stands in until then.
+ */
+const TURN_SLICES: [number, number][] = [
+  [0, 0.8], [1.3, 2.1], [2.72, 3.48], [3.97, 4.43],
+  [5.13, 6.07], [6.77, 7.32], [7.94, 8.75], [9.29, 10.35],
+]
+const samples: { turns?: AudioBuffer; riffle?: AudioBuffer } = {}
+let samplesLoading = false
+let lastSlice = -1
+
+function loadSamples(ac: AudioContext) {
+  if (samplesLoading) return
+  samplesLoading = true
+  const load = (url: string) =>
+    fetch(url)
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(url))))
+      .then((b) => ac.decodeAudioData(b))
+  load('/sounds/page-turns.mp3').then((b) => (samples.turns = b)).catch(() => {})
+  load('/sounds/riffle.mp3').then((b) => (samples.riffle = b)).catch(() => {})
+}
+
+/** Fetch and decode the recorded sounds ahead of time (call from a tap). */
+export function preloadSounds(): void {
+  const ac = audio()
+  if (ac) loadSamples(ac)
+}
+
+function playSlice(ac: AudioContext, buf: AudioBuffer, from: number, to: number, volume: number): AudioBufferSourceNode {
+  const t = ac.currentTime
+  const dur = Math.min(to, buf.duration) - from
+  const src = ac.createBufferSource()
+  src.buffer = buf
+  const gain = ac.createGain()
+  gain.gain.setValueAtTime(volume, t)
+  gain.gain.setValueAtTime(volume, t + Math.max(0, dur - 0.06))
+  gain.gain.linearRampToValueAtTime(0.0001, t + dur)
+  src.connect(gain).connect(ac.destination)
+  src.start(t, from, dur)
+  return src
+}
+
+/** A single page turning: one of the eight recorded turns, never the same twice in a row. */
 export function playPageFlip(): void {
   const ac = audio()
   if (!ac) return
+  loadSamples(ac)
+  if (samples.turns) {
+    let i = Math.floor(Math.random() * TURN_SLICES.length)
+    if (i === lastSlice) i = (i + 1) % TURN_SLICES.length
+    lastSlice = i
+    const [from, to] = TURN_SLICES[i]
+    playSlice(ac, samples.turns, from, to, 0.9)
+    return
+  }
+  synthPageFlip(ac)
+}
+
+/**
+ * Many pages flicking past, for `seconds` (the riffle recording is about two
+ * seconds; shorter jumps fade it out early). Returns a function that stops it.
+ */
+export function playRiffle(seconds: number): () => void {
+  const ac = audio()
+  if (!ac) return () => {}
+  loadSamples(ac)
+  if (!samples.riffle) {
+    // Not decoded yet: a quick run of single flips instead.
+    const n = Math.max(2, Math.round(seconds / 0.18))
+    const timers = Array.from({ length: n }, (_, k) => setTimeout(() => synthPageFlip(ac), k * 180))
+    return () => timers.forEach(clearTimeout)
+  }
+  const len = Math.min(seconds + 0.25, samples.riffle.duration)
+  const src = playSlice(ac, samples.riffle, 0, len, 0.85)
+  return () => {
+    try {
+      src.stop()
+    } catch {
+      /* already finished */
+    }
+  }
+}
+
+/** A page sweeping over: a filtered swish with paper flutter, then a soft landing. */
+function synthPageFlip(ac: AudioContext): void {
   const t = ac.currentTime
   const dur = 0.42 + Math.random() * 0.08
 

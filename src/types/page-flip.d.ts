@@ -49,6 +49,10 @@ declare module 'page-flip' {
     getPageCount(): number
     getCurrentPageIndex(): number
     getOrientation(): Orientation
+    /** The live settings object; changing flippingTime affects the next flip. */
+    getSettings(): { flippingTime: number }
+    getRender(): { getRect(): { left: number; top: number; width: number; height: number; pageWidth: number } }
+    getFlipController(): { flip(globalPos: { x: number; y: number }): void }
     getState(): FlippingState
     on(event: 'flip', cb: (e: WidgetEvent<number>) => void): PageFlip
     on(event: 'changeState', cb: (e: WidgetEvent<FlippingState>) => void): PageFlip

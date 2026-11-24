@@ -6,7 +6,7 @@ import { cn } from '../components/ui'
 import type { Book } from '../content/books'
 import { isSnowyBook, Snowfall } from '../components/Snowfall'
 import { logEvent } from '../data/events'
-import { startFireplace } from '../lib/sounds'
+import { preloadSounds, startFireplace } from '../lib/sounds'
 import { visiblePages } from '../lib/spread'
 import { useArtworkThumbs, useProfileArtworks } from '../state/hooks'
 import { useBook, useLibrary } from '../state/library-store'
@@ -47,6 +47,7 @@ function Reader({ book }: { book: Book }) {
   const setFireplace = usePrefs((s) => s.setFireplace)
   const artworks = useProfileArtworks()
   const flip = useRef<FlipBookHandle>(null)
+  const [riffling, setRiffling] = useState(false)
   const count = book.pages.length
 
   const [startPage] = useState(() => {
@@ -93,6 +94,7 @@ function Reader({ book }: { book: Book }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return
+      if (flipBusy.current) return
       if (e.key === 'ArrowRight') flip.current?.next()
       else if (e.key === 'ArrowLeft') flip.current?.prev()
       else if (e.key === 'Escape') navigate(`/books/${book.id}`)
@@ -100,6 +102,10 @@ function Reader({ book }: { book: Book }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [navigate, book.id])
+
+  const flipBusy = useRef(false)
+  flipBusy.current = riffling
+  useEffect(() => preloadSounds(), [])
 
   useEffect(() => (fireplace ? startFireplace() : undefined), [fireplace])
 
@@ -156,7 +162,7 @@ function Reader({ book }: { book: Book }) {
       </header>
 
       <div className="relative flex min-h-0 flex-1 items-center px-2 py-4 sm:px-4 md:px-20">
-        <TurnButton side="prev" placement="side" disabled={atStart} onClick={() => flip.current?.prev()} />
+        <TurnButton side="prev" placement="side" disabled={atStart || riffling} onClick={() => flip.current?.prev()} />
         {artworks === undefined ? (
           <Splash />
         ) : (
@@ -167,15 +173,16 @@ function Reader({ book }: { book: Book }) {
             ratio={book.pageSize.width / book.pageSize.height}
             onFlip={onFlip}
             onOpenPage={openPage}
+            onBusyChange={setRiffling}
             className="size-full"
           />
         )}
-        <TurnButton side="next" placement="side" disabled={atEnd} onClick={() => flip.current?.next()} />
+        <TurnButton side="next" placement="side" disabled={atEnd || riffling} onClick={() => flip.current?.next()} />
       </div>
 
       <footer className="shrink-0 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5">
         <div className="mx-auto flex max-w-4xl items-center justify-center gap-3">
-          <TurnButton side="prev" placement="inline" disabled={atStart} onClick={() => flip.current?.prev()} />
+          <TurnButton side="prev" placement="inline" disabled={atStart || riffling} onClick={() => flip.current?.prev()} />
           <div className="flex min-h-14 flex-1 flex-wrap items-center justify-center gap-2">
             {colorable.length > 0 ? (
               colorable.map((p) => (
@@ -183,6 +190,7 @@ function Reader({ book }: { book: Book }) {
                   key={p.id}
                   type="button"
                   onClick={() => openPage(p)}
+                  disabled={riffling}
                   className="inline-flex min-h-12 items-center gap-2 rounded-full bg-white px-5 font-semibold text-ink-deep shadow-lift transition-transform active:scale-95"
                 >
                   <Paintbrush className="size-5" style={{ color: book.theme.accent }} />
@@ -195,7 +203,7 @@ function Reader({ book }: { book: Book }) {
               </p>
             )}
           </div>
-          <TurnButton side="next" placement="inline" disabled={atEnd} onClick={() => flip.current?.next()} />
+          <TurnButton side="next" placement="inline" disabled={atEnd || riffling} onClick={() => flip.current?.next()} />
         </div>
 
         <nav aria-label="Pages" className="mx-auto mt-3 flex max-w-4xl justify-center gap-2 overflow-x-auto pb-1">
@@ -204,6 +212,7 @@ function Reader({ book }: { book: Book }) {
               key={p.id}
               type="button"
               onClick={() => flip.current?.flipTo(i)}
+              disabled={riffling}
               aria-label={`Go to ${p.title}`}
               aria-current={visible.includes(i) ? 'page' : undefined}
               className={cn(

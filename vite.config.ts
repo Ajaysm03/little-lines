@@ -60,7 +60,7 @@ function apiDevServer(): Plugin {
         },
         workbox: {
           // The app, its fonts and every bundled book page, so coloring works with no internet.
-          globPatterns: ['**/*.{js,mjs,css,html,svg,png,webp,woff2}'],
+          globPatterns: ['**/*.{js,mjs,css,html,svg,png,webp,woff2,mp3}'],
           // PDF import (grown-ups only, needs a file anyway) and rarely used font subsets
           // still load online; leaving them out keeps the offline cache small on tablets.
           globIgnores: ['**/pdf*.{js,mjs}', '**/ImportScreen-*.js', '**/*-cyrillic*.woff2', '**/*-vietnamese*.woff2', '**/*-greek*.woff2'],

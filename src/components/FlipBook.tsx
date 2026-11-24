@@ -1,7 +1,7 @@
 import { PageFlip, type Orientation } from 'page-flip'
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import type { PageKind } from '../content/books'
-import { playPageFlip } from '../lib/sounds'
+import { playPageFlip, playRiffle } from '../lib/sounds'
 import './flipbook.css'
 
 export interface FlipPage {
@@ -32,7 +32,26 @@ interface FlipBookProps {
   ratio: number
   onFlip?: (view: FlipView) => void
   onOpenPage?: (page: FlipPage) => void
+  /** True while the book riffles to a far page; controls should wait. */
+  onBusyChange?: (busy: boolean) => void
   className?: string
+}
+
+const FLIP_MS = 850
+/** A riffle flips every page in between, all within about this long. */
+const RIFFLE_MS = 1900
+
+interface Riffle {
+  target: number
+  forward: boolean
+  left: number
+  stopSound: () => void
+  safety: ReturnType<typeof setTimeout>
+}
+
+/** Which spread a page is on: the cover alone, then pairs (1-2, 3-4, ...). */
+function spreadOf(index: number, landscape: boolean) {
+  return landscape ? Math.floor((index + 1) / 2) : index
 }
 
 /**
@@ -42,7 +61,7 @@ interface FlipBookProps {
  * outside React and the whole book is rebuilt when the available space changes.
  */
 export const FlipBook = forwardRef<FlipBookHandle, FlipBookProps>(function FlipBook(
-  { pages, startPage, ratio, onFlip, onOpenPage, className },
+  { pages, startPage, ratio, onFlip, onOpenPage, onBusyChange, className },
   ref,
 ) {
   const stageRef = useRef<HTMLDivElement>(null)
@@ -52,6 +71,37 @@ export const FlipBook = forwardRef<FlipBookHandle, FlipBookProps>(function FlipB
   const onOpenRef = useRef(onOpenPage)
   onFlipRef.current = onFlip
   onOpenRef.current = onOpenPage
+  const onBusyRef = useRef(onBusyChange)
+  onBusyRef.current = onBusyChange
+  const riffleRef = useRef<Riffle | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const endRiffle = (book: PageFlip | null) => {
+    const r = riffleRef.current
+    if (!r) return
+    riffleRef.current = null
+    clearTimeout(r.safety)
+    if (book) {
+      book.getSettings().flippingTime = FLIP_MS
+      // Normally already there; this only matters if a flip was refused.
+      if (book.getCurrentPageIndex() !== r.target && spreadOf(book.getCurrentPageIndex(), book.getOrientation() === 'landscape') !== spreadOf(r.target, book.getOrientation() === 'landscape')) {
+        book.turnToPage(r.target)
+        currentRef.current = r.target
+        onFlipRef.current?.({ index: r.target, orientation: book.getOrientation() })
+      }
+    } else r.stopSound()
+    setBusy(false)
+    onBusyRef.current?.(false)
+  }
+
+  const riffleStep = (book: PageFlip) => {
+    const r = riffleRef.current
+    if (!r) return
+    if (r.left <= 0) return endRiffle(book)
+    r.left--
+    if (r.forward) book.flipNext('bottom')
+    else turnBack(book)
+  }
   const [space, setSpace] = useState<{ w: number; h: number } | null>(null)
 
   // Track the stage size; rebuild only when it really changes.
@@ -102,7 +152,7 @@ export const FlipBook = forwardRef<FlipBookHandle, FlipBookProps>(function FlipB
       startPage: Math.min(currentRef.current, pages.length - 1),
       drawShadow: true,
       maxShadowOpacity: 0.45,
-      flippingTime: 850,
+      flippingTime: FLIP_MS,
       mobileScrollSupport: false,
       showPageCorners: true,
       disableFlipByClick: true,
@@ -115,7 +165,12 @@ export const FlipBook = forwardRef<FlipBookHandle, FlipBookProps>(function FlipB
       onFlipRef.current?.({ index: e.data, orientation: book.getOrientation() })
     })
     book.on('changeState', (e) => {
-      if (e.data === 'flipping') playPageFlip()
+      if (e.data === 'flipping') {
+        if (!riffleRef.current) playPageFlip()
+      } else if (e.data === 'read' && riffleRef.current) {
+        // Start the next page as soon as this one lands.
+        requestAnimationFrame(() => riffleStep(book))
+      }
     })
     book.on('init', (e) => {
       onFlipRef.current?.({ index: e.data.page, orientation: e.data.mode })
@@ -124,6 +179,7 @@ export const FlipBook = forwardRef<FlipBookHandle, FlipBookProps>(function FlipB
 
     return () => {
       bookRef.current = null
+      endRiffle(null)
       book.destroy() // also removes `host`
       // page-flip's animation loop keeps running after destroy(); give it nothing to draw.
       const render = (book as unknown as { getRender(): { render: (t: number) => void } }).getRender()
@@ -134,26 +190,64 @@ export const FlipBook = forwardRef<FlipBookHandle, FlipBookProps>(function FlipB
   useImperativeHandle(
     ref,
     () => ({
-      next: () => bookRef.current?.flipNext('bottom'),
-      prev: () => bookRef.current?.flipPrev('bottom'),
+      next: () => {
+        if (!riffleRef.current) bookRef.current?.flipNext('bottom')
+      },
+      prev: () => {
+        if (bookRef.current && !riffleRef.current) turnBack(bookRef.current)
+      },
       flipTo: (index) => {
         const book = bookRef.current
-        if (!book || index === book.getCurrentPageIndex()) return
-        // Neighbouring spreads get the full page-turn animation; far pages jump.
-        const spread = book.getOrientation() === 'landscape' ? 2 : 1
-        if (Math.abs(index - book.getCurrentPageIndex()) <= spread) book.flip(index, 'bottom')
-        else {
-          book.turnToPage(index)
-          currentRef.current = index
-          onFlipRef.current?.({ index, orientation: book.getOrientation() })
+        if (!book || riffleRef.current) return
+        const landscape = book.getOrientation() === 'landscape'
+        const from = spreadOf(book.getCurrentPageIndex(), landscape)
+        const to = spreadOf(index, landscape)
+        const steps = Math.abs(to - from)
+        if (steps === 0) return
+        if (steps === 1) {
+          // The neighbouring spread gets the normal, full page turn.
+          if (to > from) book.flipNext('bottom')
+          else turnBack(book)
+          return
         }
+        // Far pages: flick through every page in between, fast, with the riffle sound.
+        const per = Math.max(70, Math.min(320, RIFFLE_MS / steps))
+        book.getSettings().flippingTime = per
+        riffleRef.current = {
+          target: index,
+          forward: to > from,
+          left: steps,
+          stopSound: playRiffle((per * steps) / 1000),
+          // If a flip is ever refused the chain would stall; finish regardless.
+          safety: setTimeout(() => endRiffle(bookRef.current), per * steps + 2500),
+        }
+        setBusy(true)
+        onBusyRef.current?.(true)
+        riffleStep(book)
       },
     }),
     [],
   )
 
-  return <div ref={stageRef} className={`flipbook-stage ${className ?? ''}`} />
+  return (
+    <div
+      ref={stageRef}
+      aria-busy={busy}
+      className={`flipbook-stage ${busy ? 'pointer-events-none' : ''} ${className ?? ''}`}
+    />
+  )
 })
+
+/**
+ * Turn back one page. page-flip's own flipPrev() presses at x = 10 in window
+ * terms, which only lands on the book when it starts at the left edge; on a
+ * centred single page (phones) the press misses and nothing happens. Press
+ * the real bottom-left corner of the book instead.
+ */
+function turnBack(book: PageFlip) {
+  const r = book.getRender().getRect()
+  book.getFlipController().flip({ x: r.left + 10, y: r.top + r.height - 2 })
+}
 
 function buildPage(page: FlipPage, open: () => void): HTMLElement {
   const el = document.createElement('div')
