@@ -194,7 +194,7 @@ export function Suggestions({ color, onPick, layout }: { color: string; onPick: 
         <button
           type="button"
           onClick={next}
-          className="inline-flex min-h-9 items-center gap-1 rounded-full px-2.5 text-[0.8125rem] font-semibold text-ink hover:bg-frost"
+          className="inline-flex min-h-11 items-center gap-1 rounded-full px-2.5 text-[0.8125rem] font-semibold text-ink hover:bg-frost"
           title="Try other colors"
         >
           <Shuffle className="size-4" /> {HARMONIES[rule].label}

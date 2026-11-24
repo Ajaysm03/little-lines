@@ -1,9 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <rect width="64" height="64" rx="16" fill="#2B2F6B"/>
-  <path d="M14 44c6-10 10-4 15-12s9-6 13-12" fill="none" stroke="#F2C230" stroke-width="6" stroke-linecap="round"/>
-  <g transform="rotate(-45 40 26)">
-    <rect x="32" y="20" width="22" height="12" rx="2" fill="#E0475B"/>
-    <path d="M54 20l8 6-8 6z" fill="#F4D7B8"/>
-    <rect x="36" y="20" width="3" height="12" fill="#fff" opacity=".7"/>
+  <!-- The line the crayon has just drawn -->
+  <path d="M10 48c5-8 9-3 13-9s7-5 11-9" fill="none" stroke="#F2C230" stroke-width="5.5" stroke-linecap="round"/>
+  <!-- Crayon, tip on the end of the line -->
+  <g transform="rotate(-45 34 30)">
+    <path d="M34 30l8-5v10z" fill="#F4D7B8"/>
+    <rect x="41.5" y="25" width="20" height="10" rx="2" fill="#E0475B"/>
+    <rect x="46" y="25" width="3" height="10" fill="#fff" opacity=".7"/>
+    <rect x="55" y="25" width="3" height="10" fill="#fff" opacity=".7"/>
   </g>
 </svg>

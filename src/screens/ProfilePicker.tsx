@@ -12,9 +12,11 @@ import type { Profile } from '../data/types'
 import { useProfiles } from '../state/hooks'
 import { useSession } from '../state/session-store'
 import { Splash } from './guards'
+import { useTitle } from '../lib/useTitle'
 
 export function ProfilePicker() {
   const profiles = useProfiles()
+  useTitle('Who’s coloring today?')
   const selectProfile = useSession((s) => s.selectProfile)
   const checkPin = useSession((s) => s.checkPin)
   const navigate = useNavigate()

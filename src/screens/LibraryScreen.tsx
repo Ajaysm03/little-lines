@@ -2,9 +2,10 @@ import { Search } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { BookCard } from '../components/BookCard'
 import { cn } from '../components/ui'
-import { BUNDLED_BOOKS } from '../content/books'
 import { bookProgress, type BookStatus } from '../data/progress'
 import { useProfileArtworks } from '../state/hooks'
+import { useBooks } from '../state/library-store'
+import { useTitle } from '../lib/useTitle'
 
 const STATUSES: Array<{ id: BookStatus | 'all'; label: string }> = [
   { id: 'all', label: 'All' },
@@ -13,15 +14,16 @@ const STATUSES: Array<{ id: BookStatus | 'all'; label: string }> = [
   { id: 'finished', label: 'Finished' },
 ]
 
-const ALL_TAGS = Array.from(new Set(BUNDLED_BOOKS.flatMap((b) => b.tags))).sort()
-
 export function LibraryScreen() {
   const artworks = useProfileArtworks() ?? []
+  useTitle('Library')
+  const books = useBooks()
+  const allTags = useMemo(() => Array.from(new Set(books.flatMap((b) => b.tags))).sort(), [books])
   const [query, setQuery] = useState('')
   const [tag, setTag] = useState<string | null>(null)
   const [status, setStatus] = useState<BookStatus | 'all'>('all')
 
-  const shelf = useMemo(() => BUNDLED_BOOKS.map((book) => ({ book, progress: bookProgress(book, artworks) })), [artworks])
+  const shelf = useMemo(() => books.map((book) => ({ book, progress: bookProgress(book, artworks) })), [books, artworks])
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -65,7 +67,7 @@ export function LibraryScreen() {
           ))}
         </div>
         <div role="group" aria-label="Topics" className="flex flex-wrap gap-2">
-          {ALL_TAGS.map((t) => (
+          {allTags.map((t) => (
             <Chip key={t} active={tag === t} onClick={() => setTag(tag === t ? null : t)} variant="tag">
               {t}
             </Chip>
@@ -126,7 +128,7 @@ function Chip({
       aria-pressed={role ? undefined : active}
       onClick={onClick}
       className={cn(
-        'min-h-10 rounded-full px-4 text-[0.9375rem] font-semibold transition-colors',
+        'min-h-11 rounded-full px-4 text-[0.9375rem] font-semibold transition-colors',
         active
           ? variant === 'status'
             ? 'bg-ink text-white'

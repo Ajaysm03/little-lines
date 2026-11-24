@@ -1,16 +1,20 @@
-import { ArrowLeft, ChevronLeft, ChevronRight, Paintbrush, Volume2, VolumeX } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Flame, Paintbrush, Volume2, VolumeX } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { FlipBook, type FlipBookHandle, type FlipPage, type FlipView } from '../components/FlipBook'
 import { cn } from '../components/ui'
-import { getBook, type Book } from '../content/books'
+import type { Book } from '../content/books'
+import { isSnowyBook, Snowfall } from '../components/Snowfall'
 import { logEvent } from '../data/events'
+import { startFireplace } from '../lib/sounds'
 import { visiblePages } from '../lib/spread'
 import { useArtworkThumbs, useProfileArtworks } from '../state/hooks'
+import { useBook, useLibrary } from '../state/library-store'
 import { usePrefs } from '../state/prefs-store'
 import { useSession } from '../state/session-store'
 import { Splash } from './guards'
 import { NotFound } from './NotFound'
+import { useTitle } from '../lib/useTitle'
 
 function positionLabel(book: Book, visible: number[]): string {
   const pages = visible.map((i) => book.pages[i])
@@ -25,18 +29,22 @@ function positionLabel(book: Book, visible: number[]): string {
 
 export function ReaderScreen() {
   const { bookId } = useParams()
-  const book = bookId ? getBook(bookId) : undefined
-  if (!book) return <NotFound />
+  const book = useBook(bookId)
+  const loaded = useLibrary((s) => s.loaded)
+  if (!book) return loaded ? <NotFound /> : <Splash />
   return <Reader key={book.id} book={book} />
 }
 
 function Reader({ book }: { book: Book }) {
+  useTitle(book.title)
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const accountId = useSession((s) => s.account?.id)
   const profileId = useSession((s) => s.profileId)
   const sound = usePrefs((s) => s.sound)
   const setSound = usePrefs((s) => s.setSound)
+  const fireplace = usePrefs((s) => s.fireplace)
+  const setFireplace = usePrefs((s) => s.setFireplace)
   const artworks = useProfileArtworks()
   const flip = useRef<FlipBookHandle>(null)
   const count = book.pages.length
@@ -93,18 +101,21 @@ function Reader({ book }: { book: Book }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [navigate, book.id])
 
+  useEffect(() => (fireplace ? startFireplace() : undefined), [fireplace])
+
   const atStart = visible[0] === 0
   const atEnd = visible[visible.length - 1] === count - 1
   const colorable = visible.map((i) => book.pages[i]).filter((p) => p.kind === 'line-art')
 
   return (
     <div
-      className="flex h-dvh flex-col overflow-hidden text-white"
+      className="relative isolate flex h-dvh flex-col overflow-hidden text-white"
       style={{
         backgroundColor: book.theme.deep,
         backgroundImage: `radial-gradient(ellipse 70% 60% at 50% 45%, color-mix(in srgb, ${book.theme.deep} 70%, white 12%), transparent 75%)`,
       }}
     >
+      {isSnowyBook(book) ? <Snowfall className="-z-10" /> : null}
       <header className="flex shrink-0 items-center justify-between gap-3 px-3 pt-3 sm:px-5">
         <Link
           to={`/books/${book.id}`}
@@ -118,15 +129,30 @@ function Reader({ book }: { book: Book }) {
             {positionLabel(book, visible)}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setSound(!sound)}
-          aria-pressed={sound}
-          aria-label={sound ? 'Turn page sounds off' : 'Turn page sounds on'}
-          className="grid size-11 place-items-center rounded-full text-white/90 hover:bg-white/10"
-        >
-          {sound ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}
-        </button>
+        <div className="flex shrink-0 items-center">
+          <button
+            type="button"
+            onClick={() => setFireplace(!fireplace)}
+            aria-pressed={fireplace}
+            aria-label={fireplace ? 'Turn fireplace sounds off' : 'Turn fireplace sounds on'}
+            title="Cozy fireplace sounds"
+            className={cn(
+              'grid size-11 place-items-center rounded-full hover:bg-white/10',
+              fireplace ? 'text-sunflower' : 'text-white/70',
+            )}
+          >
+            <Flame className={cn('size-5', fireplace && 'fill-current')} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setSound(!sound)}
+            aria-pressed={sound}
+            aria-label={sound ? 'Turn page sounds off' : 'Turn page sounds on'}
+            className="grid size-11 place-items-center rounded-full text-white/90 hover:bg-white/10"
+          >
+            {sound ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}
+          </button>
+        </div>
       </header>
 
       <div className="relative flex min-h-0 flex-1 items-center px-2 py-4 sm:px-4 md:px-20">

@@ -3,17 +3,22 @@ import { Link, useParams } from 'react-router'
 import { BookCover } from '../components/BookCover'
 import { PageTile, ProgressBar } from '../components/BookCard'
 import { ButtonLink } from '../components/ui'
-import { colorablePages, getBook } from '../content/books'
+import { colorablePages } from '../content/books'
 import { bookProgress, progressLabel } from '../data/progress'
 import { useArtworkThumbs, useProfileArtworks } from '../state/hooks'
+import { useBook, useLibrary } from '../state/library-store'
+import { Splash } from './guards'
 import { NotFound } from './NotFound'
+import { useTitle } from '../lib/useTitle'
 
 export function BookScreen() {
   const { bookId } = useParams()
-  const book = bookId ? getBook(bookId) : undefined
+  const book = useBook(bookId)
+  useTitle(book?.title)
+  const loaded = useLibrary((s) => s.loaded)
   const artworks = useProfileArtworks() ?? []
   const thumbs = useArtworkThumbs(artworks)
-  if (!book) return <NotFound />
+  if (!book) return loaded ? <NotFound /> : <Splash />
   const pages = colorablePages(book)
   const progress = bookProgress(book, artworks)
 
@@ -46,7 +51,7 @@ export function BookScreen() {
 
           <dl className="mt-6 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-[0.9375rem]">
             <dt className="text-graphite">Best for</dt>
-            <dd className="font-semibold">Ages {book.ageRange}</dd>
+            <dd className="font-semibold">{book.ageRange ? `Ages ${book.ageRange}` : 'All ages'}</dd>
           </dl>
           <ul className="mt-4 flex flex-wrap gap-2" aria-label="Topics">
             {book.tags.map((t) => (

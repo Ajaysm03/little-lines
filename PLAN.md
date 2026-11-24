@@ -84,7 +84,21 @@ Canvas 2D + Pointer Events (pressure/tilt), Web Worker region map (fill + stay-i
   chart, most-opened pages, families table)
 - Tests for day bucketing, streaks, totals, stickers and device stats
 
-### Phase 6: PDF import, ambience, offline & polish
-- Admin PDF import (split pages, mark covers, convert to line art)
-- Fireplace ambience, crayon sounds, snowfall on the Christmas book
-- PWA install + offline, iPad performance pass, accessibility pass, production build
+### Phase 6: PDF import, ambience, offline & polish ✅
+- Admin PDF import (`/grown-ups/import`, pdf.js 6 loaded on demand): page previews, automatic guess of cover /
+  coloring / back pages from how colorful they are, page titles, book details; coloring pages become transparent
+  line art, the palette and theme come from the cover (k-means). Books on this device list with remove
+- Imported books live in IndexedDB (v2 tables `books`, `bookFiles`) and join the bundled ones through a shared
+  library store, so the reader, editor, dashboard, gallery and insights treat them the same
+- Ambience: snowfall behind Christmas/winter books, a synthesized crackling fireplace (reader and editor
+  toggle), scribble sounds that follow stroke speed with a tone per tool (on by default, switchable)
+- Installable PWA: manifest, icons (`npm run icons`), service worker precaching the app and bundled books
+  (~4.7 MB, PDF import and rare font subsets excluded); `dev:https` / `preview:https` for LAN testing
+- Performance: reader, editor and import split into their own chunks; React, Dexie and pdf.js in long-lived chunks
+- Accessibility: page titles on every screen, skip link, deeper green for text and labels (contrast >= 4.5:1),
+  44 px tap targets on filters; animations respect reduced motion
+- Node 22.13+ (pdf.js 6); tests for line-art conversion, page detection, palette and theme extraction
+
+## Ideas for later
+Time-lapse replay and video export, stickers and stamps on pages, color-by-number, real-time co-coloring,
+symmetry tool, cloud sync (Supabase) so families share progress across devices.

@@ -7,13 +7,14 @@ import { PagePreview, ProgressBar } from '../components/BookCard'
 import { BarList, ColumnChart } from '../components/charts'
 import { FavoriteColors, StreakDots, WeekPanel } from '../components/insights'
 import { StickerBadge } from '../components/Sticker'
-import { BUNDLED_BOOKS, getBook } from '../content/books'
 import { crayonHex } from '../content/profile-options'
 import { formatDuration } from '../data/analytics'
 import { db } from '../data/db'
 import { bookProgress, progressLabel } from '../data/progress'
 import type { Profile } from '../data/types'
 import { useArtworkThumbs, useDeviceInsights, useProfileInsights } from '../state/hooks'
+import { getBook, useBooks } from '../state/library-store'
+import { useTitle } from '../lib/useTitle'
 import { useSession } from '../state/session-store'
 import { Splash } from './guards'
 import { NotFound } from './NotFound'
@@ -101,6 +102,8 @@ export function ChildInsightsScreen() {
   const profile = useLiveQuery(() => (id ? db.profiles.get(id) : undefined), [id])
   const insights = useProfileInsights(id)
   const thumbs = useArtworkThumbs(insights?.artworks)
+  const books = useBooks()
+  useTitle(profile ? `${profile.name}’s coloring` : 'Insights')
   if (profile === undefined || insights === undefined) return <Splash />
   if (!profile || profile.accountId !== accountId) return <NotFound />
 
@@ -140,7 +143,7 @@ export function ChildInsightsScreen() {
 
       <Section title="Books">
         <ul className="flex flex-col gap-4">
-          {BUNDLED_BOOKS.map((book) => {
+          {books.map((book) => {
             const p = bookProgress(book, artworks)
             return (
               <li key={book.id} className="flex items-center gap-4">
@@ -204,6 +207,7 @@ export function ChildInsightsScreen() {
 export function DeviceInsightsScreen() {
   const role = useSession((s) => s.account?.role)
   const stats = useDeviceInsights()
+  useTitle('Device insights')
   if (role !== 'admin') return <NotFound />
   if (!stats) return <Splash />
   const dayFmt = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' })

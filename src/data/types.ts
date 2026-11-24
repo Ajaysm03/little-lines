@@ -58,3 +58,27 @@ export interface ActivityEvent {
   at: number
   data?: Record<string, unknown>
 }
+
+/** A book imported from a PDF on this device. Images live in `bookFiles` as blobs. */
+export interface StoredBook {
+  id: string
+  title: string
+  subtitle: string
+  description: string
+  ageRange: string
+  tags: string[]
+  theme: { accent: string; deep: string; glow: string; palette: string[] }
+  pageSize: { width: number; height: number }
+  /** File keys for the cover and its thumbnail. */
+  cover: string
+  coverThumb: string
+  pages: Array<{ id: string; kind: 'front-cover' | 'line-art' | 'back-cover'; title: string; image: string; thumb: string }>
+  createdAt: number
+  createdBy: string
+}
+
+export interface BookFile {
+  key: string
+  bookId: string
+  blob: Blob
+}

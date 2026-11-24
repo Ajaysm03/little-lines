@@ -1,11 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo } from 'react'
-import { BUNDLED_BOOKS } from '../content/books'
 import { stickerStates, type StickerState } from '../data/achievements'
 import { computeDeviceStats, computeProfileStats, type DeviceStats, type ProfileStats } from '../data/analytics'
 import { db } from '../data/db'
 import { getLastRead, type LastRead } from '../data/events'
 import type { Artwork, Profile } from '../data/types'
+import { useBooks } from './library-store'
 import { useSession } from './session-store'
 
 /** Profiles of the signed-in family, oldest first. `undefined` while loading. */
@@ -61,6 +61,7 @@ export interface ProfileInsights {
 /** Stats and stickers for one child (the active one by default). `undefined` while loading. */
 export function useProfileInsights(profileId?: string | null): ProfileInsights | undefined {
   const active = useSession((s) => s.profileId)
+  const books = useBooks()
   const pid = profileId ?? active
   const data = useLiveQuery(
     async () =>
@@ -74,9 +75,9 @@ export function useProfileInsights(profileId?: string | null): ProfileInsights |
   )
   return useMemo(() => {
     if (!data) return undefined
-    const stats = computeProfileStats(data.events, data.artworks, BUNDLED_BOOKS)
+    const stats = computeProfileStats(data.events, data.artworks, books)
     return { stats, stickers: stickerStates(stats), artworks: data.artworks }
-  }, [data])
+  }, [data, books])
 }
 
 /** Everything on this device, for the admin view. `undefined` while loading. */

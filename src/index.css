@@ -27,6 +27,8 @@
   --color-grape: #8559d9;
 
   --color-error: #b8283f;
+  /* Meadow deepened for text and white-on-green labels (5.8:1 on white). */
+  --color-meadow-ink: #26733f;
 
   --text-display: clamp(2.5rem, 2rem + 2.4vw, 3.75rem);
   --text-display--line-height: 1.05;

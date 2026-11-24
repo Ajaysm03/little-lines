@@ -11,10 +11,12 @@ import { createProfile, deleteProfile, updateProfile, UserFacingError } from '..
 import { db } from '../data/db'
 import { useSession } from '../state/session-store'
 import { Splash } from './guards'
+import { useTitle } from '../lib/useTitle'
 
 export function ProfileEditor() {
   const { id } = useParams()
   const editing = Boolean(id)
+  useTitle(editing ? 'Edit profile' : 'New profile')
   const existing = useLiveQuery(() => (id ? db.profiles.get(id) : undefined), [id])
   const account = useSession((s) => s.account)!
   const activeProfileId = useSession((s) => s.profileId)

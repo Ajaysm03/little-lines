@@ -25,14 +25,17 @@ import { Celebration } from '../components/Celebration'
 import { FillModePicker, OpacitySlider, Palette, SizePicker, Suggestions, ToolPicker } from '../components/coloring-ui'
 import { Dialog } from '../components/Dialog'
 import { Spinner, cn } from '../components/ui'
-import { getBook, type Book, type BookPage } from '../content/books'
+import type { Book, BookPage } from '../content/books'
 import { getArtwork, saveArtwork } from '../data/artworks'
 import { logEvent } from '../data/events'
 import type { Artwork } from '../data/types'
-import { playCelebration } from '../lib/sounds'
+import { playCelebration, ScribbleSound, startFireplace } from '../lib/sounds'
+import { useBook, useLibrary } from '../state/library-store'
 import { usePrefs } from '../state/prefs-store'
 import { useSession } from '../state/session-store'
+import { Splash } from './guards'
 import { NotFound } from './NotFound'
+import { useTitle } from '../lib/useTitle'
 
 const SAVE_DELAY_MS = 1200
 /** Gaps longer than this between strokes don't count as time spent coloring. */
@@ -42,10 +45,12 @@ const MIN_TO_FINISH = 0.03
 
 export function ColorScreen() {
   const { bookId, pageId } = useParams()
-  const book = bookId ? getBook(bookId) : undefined
+  const book = useBook(bookId)
+  const loaded = useLibrary((s) => s.loaded)
   const index = book?.pages.findIndex((p) => p.id === pageId) ?? -1
   const page = book && index >= 0 ? book.pages[index] : undefined
-  if (!book || !page || page.kind !== 'line-art') return <NotFound />
+  if (!book) return loaded ? <NotFound /> : <Splash />
+  if (!page || page.kind !== 'line-art') return <NotFound />
   return <Editor key={`${book.id}:${page.id}`} book={book} page={page} index={index} />
 }
 
@@ -56,6 +61,7 @@ function initial<T>(pick: (t: DrawTool) => T): Record<DrawTool, T> {
 }
 
 function Editor({ book, page, index }: { book: Book; page: BookPage; index: number }) {
+  useTitle(`Coloring ${page.title}`)
   const navigate = useNavigate()
   const accountId = useSession((s) => s.account?.id) ?? ''
   const profileId = useSession((s) => s.profileId) ?? ''
@@ -67,6 +73,10 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
   const setStayInLines = usePrefs((s) => s.setStayInLines)
   const leftHanded = usePrefs((s) => s.leftHanded[profileId] ?? false)
   const setLeftHanded = usePrefs((s) => s.setLeftHanded)
+  const drawSounds = usePrefs((s) => s.drawSounds)
+  const setDrawSounds = usePrefs((s) => s.setDrawSounds)
+  const fireplace = usePrefs((s) => s.fireplace)
+  const setFireplace = usePrefs((s) => s.setFireplace)
   const W = book.pageSize.width
   const H = book.pageSize.height
   const nextPage = book.pages.slice(index + 1).find((p) => p.kind === 'line-art')
@@ -105,6 +115,9 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const saving = useRef<Promise<Artwork | null> | null>(null)
   const finishedRef = useRef(false)
+  const scribble = useRef<ScribbleSound | null>(null)
+  scribble.current ??= new ScribbleSound()
+  const lastPoint = useRef<{ x: number; y: number; t: number } | null>(null)
 
   const chooseTool = useCallback((t: ToolId) => {
     if (t !== 'picker') lastDrawTool.current = t
@@ -286,14 +299,28 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
         if (!s) return
         noteActivity()
         engineRef.current?.beginStroke(s, pt)
+        scribble.current?.start(s.tool)
+        lastPoint.current = { x: pt.x, y: pt.y, t: performance.now() }
       },
-      onStrokeMove: (pts) => engineRef.current?.extendStroke(pts),
+      onStrokeMove: (pts) => {
+        engineRef.current?.extendStroke(pts)
+        // Drawing sound follows the stroke speed (page pixels per millisecond).
+        const end = pts[pts.length - 1]
+        const prev = lastPoint.current
+        const now = performance.now()
+        if (end && prev && now > prev.t) scribble.current?.update(Math.hypot(end.x - prev.x, end.y - prev.y) / (now - prev.t))
+        if (end) lastPoint.current = { x: end.x, y: end.y, t: now }
+      },
       onStrokeEnd: () => {
+        scribble.current?.stop()
         noteActivity()
         const t = live.current.tool
         if (engineRef.current?.endStroke() && t !== 'eraser') addRecentColor(profileId, live.current.color)
       },
-      onStrokeCancel: () => engineRef.current?.cancelStroke(),
+      onStrokeCancel: () => {
+        scribble.current?.stop()
+        engineRef.current?.cancelStroke()
+      },
       onTap: (pt) => {
         const engine = engineRef.current
         if (!engine) return
@@ -350,6 +377,9 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
       window.removeEventListener('keyup', up)
     }
   }, [applyView, zoomBy, chooseTool])
+
+  useEffect(() => (fireplace ? startFireplace() : undefined), [fireplace])
+  useEffect(() => () => scribble.current?.stop(), [])
 
   useEffect(() => {
     if (!toast) return
@@ -461,6 +491,8 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
                   className="size-5 accent-[var(--color-ink)]"
                 />
               </label>
+              <MenuCheck label="Drawing sounds" hint="A soft scratch as you color" checked={drawSounds} onChange={setDrawSounds} />
+              <MenuCheck label="Fireplace sounds" hint="A cozy crackle in the background" checked={fireplace} onChange={setFireplace} />
               <button
                 type="button"
                 onClick={() => {
@@ -481,7 +513,7 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
           disabled={!ready || busy}
           className={cn(
             'ml-1 inline-flex min-h-12 items-center gap-2 rounded-full px-4 font-semibold shadow-lift transition-transform active:scale-95 disabled:opacity-60 sm:px-5',
-            finished ? 'bg-meadow text-white' : 'bg-sunflower text-ink-deep',
+            finished ? 'bg-meadow-ink text-white' : 'bg-sunflower text-ink-deep',
           )}
         >
           {busy ? <Spinner /> : finished ? <Check className="size-5" strokeWidth={3} /> : <Star className="size-5 fill-current" />}
@@ -706,9 +738,21 @@ function SaveStatus({ state }: { state: SaveState }) {
     )
   if (state === 'saved')
     return (
-      <p className="flex items-center gap-1 text-[0.8125rem] text-meadow">
+      <p className="flex items-center gap-1 text-[0.8125rem] text-meadow-ink">
         <Check className="size-3.5" strokeWidth={3} /> Saved
       </p>
     )
   return <p className="text-[0.8125rem] text-graphite">Saving…</p>
+}
+
+function MenuCheck({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex min-h-12 cursor-pointer items-center justify-between gap-4 rounded-xl px-3 hover:bg-frost">
+      <span>
+        <span className="block font-semibold text-ink-deep">{label}</span>
+        <span className="block text-[0.8125rem] text-graphite">{hint}</span>
+      </span>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="size-5 accent-[var(--color-ink)]" />
+    </label>
+  )
 }

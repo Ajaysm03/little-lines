@@ -4,14 +4,17 @@ import { PinPad } from '../components/PinPad'
 import { Button, Spinner } from '../components/ui'
 import { isParentUnlocked, useSession } from '../state/session-store'
 import { useProfiles } from '../state/hooks'
+import { useLibrary } from '../state/library-store'
 
 /** Restores the saved session once, then renders the app. */
 export function Root() {
   const status = useSession((s) => s.status)
   const init = useSession((s) => s.init)
+  const loadLibrary = useLibrary((s) => s.load)
   useEffect(() => {
     void init()
-  }, [init])
+    void loadLibrary()
+  }, [init, loadLibrary])
   if (status === 'loading') return <Splash />
   return <Outlet />
 }

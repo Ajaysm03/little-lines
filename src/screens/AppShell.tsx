@@ -39,6 +39,12 @@ export function AppShell() {
 
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[6.5rem_minmax(0,1fr)]" style={{ ['--crayon' as string]: crayon }}>
+      <a
+        href="#content"
+        className="sr-only z-50 rounded-full bg-ink px-5 py-3 font-semibold text-white focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+      >
+        Skip to content
+      </a>
       <aside className="sticky top-0 hidden h-dvh flex-col items-center border-r-2 border-frost bg-paper py-6 md:flex">
         <NavLink to="/home" aria-label="Little Lines home" className="grid size-12 place-items-center rounded-2xl bg-ink">
           <img src="/favicon.svg" alt="" className="size-12 rounded-2xl" />
@@ -60,7 +66,7 @@ export function AppShell() {
         </div>
       </aside>
 
-      <div className="flex min-h-dvh flex-col pb-24 md:pb-0">
+      <div id="content" tabIndex={-1} className="flex min-h-dvh flex-col pb-24 outline-none md:pb-0">
         <header className="flex items-center justify-between px-4 pt-4 md:hidden">
           <Wordmark size="sm" />
           <NavLink to="/grown-ups" aria-label="Grown-ups" className="grid size-11 place-items-center rounded-full text-graphite hover:bg-frost">

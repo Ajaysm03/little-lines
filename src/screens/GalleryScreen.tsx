@@ -4,13 +4,15 @@ import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router'
 import { StickerBadge } from '../components/Sticker'
 import { ButtonLink, Spinner, cn } from '../components/ui'
-import { getBook, type Book, type BookPage } from '../content/books'
+import type { Book, BookPage } from '../content/books'
 import { CRAYONS } from '../content/profile-options'
 import type { Artwork } from '../data/types'
 import { downloadPicture } from '../lib/export'
 import { useArtworkThumbs, useProfileInsights } from '../state/hooks'
+import { useBooks } from '../state/library-store'
 import { usePrefs } from '../state/prefs-store'
 import { useSession } from '../state/session-store'
+import { useTitle } from '../lib/useTitle'
 
 type Filter = 'all' | 'finished' | 'in-progress'
 
@@ -25,23 +27,25 @@ const TILTS = [-2.2, 1.4, -0.8, 2, -1.6, 0.9]
 
 export function GalleryScreen() {
   const profileId = useSession((s) => s.profileId) ?? ''
+  useTitle('My art')
   const insights = useProfileInsights()
   const thumbs = useArtworkThumbs(insights?.artworks)
   const markSeen = usePrefs((s) => s.markStickersSeen)
   const location = useLocation()
   const [filter, setFilter] = useState<Filter>('all')
   const [open, setOpen] = useState<Piece | null>(null)
+  const books = useBooks()
 
   const pieces = useMemo<Piece[]>(() => {
     const out: Piece[] = []
     for (const art of insights?.artworks ?? []) {
       if (art.progress <= 0 && !art.completedAt) continue
-      const book = getBook(art.bookId)
+      const book = books.find((b) => b.id === art.bookId)
       const page = book?.pages.find((p) => p.id === art.pageId)
       if (book && page) out.push({ art, book, page })
     }
     return out.sort((a, b) => b.art.updatedAt - a.art.updatedAt)
-  }, [insights?.artworks])
+  }, [insights?.artworks, books])
 
   const shown = pieces.filter((p) =>
     filter === 'all' ? true : filter === 'finished' ? Boolean(p.art.completedAt) : !p.art.completedAt,
@@ -96,7 +100,7 @@ export function GalleryScreen() {
                 aria-checked={filter === id}
                 onClick={() => setFilter(id)}
                 className={cn(
-                  'min-h-10 rounded-full px-4 text-[0.9375rem] font-semibold',
+                  'min-h-11 rounded-full px-4 text-[0.9375rem] font-semibold',
                   filter === id ? 'bg-ink text-white' : 'bg-paper text-ink ring-2 ring-inset ring-mist hover:ring-ink/30',
                 )}
               >

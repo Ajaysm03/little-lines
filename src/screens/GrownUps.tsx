@@ -1,14 +1,18 @@
-import { ArrowLeft, BarChart3, ChevronRight, KeyRound, Lock, LogOut, Pencil, Plus } from 'lucide-react'
+import { ArrowLeft, BarChart3, ChevronRight, FileUp, KeyRound, Lock, LogOut, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Avatar } from '../components/Avatar'
 import { Dialog } from '../components/Dialog'
 import { PinPad } from '../components/PinPad'
 import { Button, ButtonLink } from '../components/ui'
+import type { Book } from '../content/books'
 import { changeParentPin, MAX_PROFILES, verifyParentPin } from '../data/accounts'
+import { deleteImportedBook } from '../data/imported-books'
 import { useProfiles } from '../state/hooks'
+import { useBooks, useLibrary } from '../state/library-store'
 import { useSession } from '../state/session-store'
 import { ChildSummaryRow } from './InsightsScreens'
+import { useTitle } from '../lib/useTitle'
 
 function formatDate(ms: number | null) {
   if (!ms) return 'Not yet'
@@ -17,6 +21,7 @@ function formatDate(ms: number | null) {
 
 export function GrownUps() {
   const account = useSession((s) => s.account)!
+  useTitle('Grown-ups')
   const profileId = useSession((s) => s.profileId)
   const logOut = useSession((s) => s.logOut)
   const lockParent = useSession((s) => s.lockParent)
@@ -25,6 +30,9 @@ export function GrownUps() {
   const [pinStep, setPinStep] = useState<null | 'current' | 'next'>(null)
   const [currentPin, setCurrentPin] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
+  const books = useBooks()
+  const reloadLibrary = useLibrary((s) => s.load)
+  const [removing, setRemoving] = useState<Book | null>(null)
 
   function done() {
     lockParent()
@@ -123,6 +131,38 @@ export function GrownUps() {
         ) : null}
       </section>
 
+      {account.role === 'admin' ? (
+        <section className="mt-12" aria-labelledby="books-h">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <h2 id="books-h" className="font-display text-heading font-bold text-ink-deep">
+              Books on this device
+            </h2>
+            <ButtonLink to="/grown-ups/import" variant="secondary">
+              <FileUp className="size-5" /> Add a book from a PDF
+            </ButtonLink>
+          </div>
+          <ul className="mt-4 divide-y-2 divide-frost overflow-hidden rounded-3xl bg-paper ring-2 ring-inset ring-mist">
+            {books.map((b) => (
+              <li key={b.id} className="flex items-center gap-4 px-5 py-3">
+                <img src={b.coverThumb} alt="" className="w-10 rounded-[2px_4px_4px_2px] shadow-book" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold text-ink-deep">{b.title}</p>
+                  <p className="text-[0.9375rem] text-graphite">
+                    {b.pages.filter((p) => p.kind === 'line-art').length} pages to color,{' '}
+                    {b.origin === 'bundled' ? 'comes with the app' : 'added from a PDF'}
+                  </p>
+                </div>
+                {b.origin === 'imported' ? (
+                  <Button variant="danger" onClick={() => setRemoving(b)} aria-label={`Remove ${b.title}`}>
+                    <Trash2 className="size-4" /> <span className="hidden sm:inline">Remove</span>
+                  </Button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <section className="mt-12" aria-labelledby="account-h">
         <h2 id="account-h" className="font-display text-heading font-bold text-ink-deep">
           Account
@@ -142,6 +182,33 @@ export function GrownUps() {
           </Button>
         </div>
       </section>
+
+      {removing ? (
+        <Dialog label="Remove book" onClose={() => setRemoving(null)}>
+          <h2 className="font-display text-heading font-bold text-ink-deep">Remove {removing.title}?</h2>
+          <p className="mt-2 text-graphite">
+            It leaves the library for every family on this device, and any coloring of its pages is deleted too. This
+            can’t be undone.
+          </p>
+          <div className="mt-6 flex flex-col gap-3">
+            <Button
+              variant="danger"
+              onClick={async () => {
+                const title = removing.title
+                await deleteImportedBook(removing.id)
+                await reloadLibrary()
+                setRemoving(null)
+                setNotice(`${title} was removed.`)
+              }}
+            >
+              <Trash2 className="size-5" /> Remove book
+            </Button>
+            <Button variant="ghost" onClick={() => setRemoving(null)}>
+              Keep it
+            </Button>
+          </div>
+        </Dialog>
+      ) : null}
 
       {pinStep ? (
         <Dialog label="Change parent PIN" onClose={() => setPinStep(null)}>

@@ -27,7 +27,12 @@ const safeStorage: StateStorage = {
 }
 
 interface PrefsState {
+  /** Sound effects: page flips, the finish chime, drawing sounds. */
   sound: boolean
+  /** Scribble sounds while coloring (needs `sound`). */
+  drawSounds: boolean
+  /** A crackling fireplace while reading and coloring. */
+  fireplace: boolean
   /** Only the Apple Pencil / stylus draws; fingers move and zoom the page. */
   penOnly: boolean
   /** Set once a pen has been used, so pencil-only switches on by itself just the first time. */
@@ -41,6 +46,8 @@ interface PrefsState {
   /** Per child: stickers already celebrated, so each "new sticker" note shows once. */
   seenStickers: Record<string, string[]>
   setSound(on: boolean): void
+  setDrawSounds(on: boolean): void
+  setFireplace(on: boolean): void
   setPenOnly(on: boolean): void
   markPenSeen(): void
   addRecentColor(profileId: string, color: string): void
@@ -54,6 +61,8 @@ export const usePrefs = create<PrefsState>()(
   persist(
     (set) => ({
       sound: true,
+      drawSounds: true,
+      fireplace: false,
       penOnly: false,
       penSeen: false,
       recentColors: {},
@@ -61,6 +70,8 @@ export const usePrefs = create<PrefsState>()(
       leftHanded: {},
       seenStickers: {},
       setSound: (sound) => set({ sound }),
+      setDrawSounds: (drawSounds) => set({ drawSounds }),
+      setFireplace: (fireplace) => set({ fireplace }),
       setPenOnly: (penOnly) => set({ penOnly }),
       markPenSeen: () => set({ penSeen: true }),
       addRecentColor: (profileId, color) =>

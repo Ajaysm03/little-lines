@@ -4,9 +4,11 @@ import { Button, FormError, TextField } from '../components/ui'
 import { UserFacingError } from '../data/accounts'
 import { useSession } from '../state/session-store'
 import { AuthLayout } from './AuthLayout'
+import { useTitle } from '../lib/useTitle'
 
 export function WelcomeScreen() {
   const logIn = useSession((s) => s.logIn)
+  useTitle('Log in')
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

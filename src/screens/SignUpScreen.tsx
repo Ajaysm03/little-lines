@@ -6,12 +6,14 @@ import { Button, FormError, TextField } from '../components/ui'
 import { MIN_PASSWORD_LENGTH, UserFacingError } from '../data/accounts'
 import { useSession } from '../state/session-store'
 import { AuthLayout } from './AuthLayout'
+import { useTitle } from '../lib/useTitle'
 
 type Fields = { name: string; email: string; password: string }
 type FieldErrors = Partial<Record<keyof Fields, string>>
 
 export function SignUpScreen() {
   const signUp = useSession((s) => s.signUp)
+  useTitle('Create a family account')
   const navigate = useNavigate()
   const [step, setStep] = useState<'details' | 'pin'>('details')
   const [fields, setFields] = useState<Fields>({ name: '', email: '', password: '' })

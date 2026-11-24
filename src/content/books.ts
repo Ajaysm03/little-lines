@@ -33,12 +33,8 @@ export interface Book {
   pages: BookPage[]
 }
 
-/** Built by `npm run assets` from the art folders next to the app. Imported books join in Phase 6. */
+/** Built by `npm run assets` from the art folders next to the app. Imported books are added by the library store. */
 export const BUNDLED_BOOKS = bundled as Book[]
-
-export function getBook(id: string): Book | undefined {
-  return BUNDLED_BOOKS.find((b) => b.id === id)
-}
 
 export function colorablePages(book: Book): BookPage[] {
   return book.pages.filter((p) => p.kind === 'line-art')

@@ -6,23 +6,27 @@ import { FavoriteColors, WeekPanel } from '../components/insights'
 import { StickerBadge } from '../components/Sticker'
 import { crayonHex } from '../content/profile-options'
 import type { StickerState } from '../data/achievements'
-import { BUNDLED_BOOKS, colorablePages, getBook, type Book } from '../content/books'
+import { colorablePages, type Book } from '../content/books'
 import type { LastRead } from '../data/events'
 import { bookProgress, progressLabel } from '../data/progress'
 import type { Artwork } from '../data/types'
 import { useActiveProfile, useArtworkThumbs, useLastRead, useProfileArtworks, useProfileInsights } from '../state/hooks'
+import { useBooks } from '../state/library-store'
 import { usePrefs } from '../state/prefs-store'
+import { useTitle } from '../lib/useTitle'
 
 export function HomeScreen() {
   const profile = useActiveProfile()
+  useTitle('Home')
   const artworks = useProfileArtworks() ?? []
   const thumbs = useArtworkThumbs(artworks)
   const lastRead = useLastRead()
   const insights = useProfileInsights()
   const crayon = profile ? crayonHex(profile.color) : '#2b2f6b'
 
-  const resume = lastRead ? getBook(lastRead.bookId) : undefined
-  const pages = BUNDLED_BOOKS.flatMap((book) => colorablePages(book).map((page) => ({ book, page }))).slice(0, 8)
+  const books = useBooks()
+  const resume = lastRead ? books.find((b) => b.id === lastRead.bookId) : undefined
+  const pages = books.flatMap((book) => colorablePages(book).map((page) => ({ book, page }))).slice(0, 8)
 
   return (
     <main className="w-full max-w-6xl px-4 pt-6 pb-12 sm:px-8 md:pt-10 lg:px-12">
@@ -36,8 +40,8 @@ export function HomeScreen() {
 
       {profile && insights ? <NewStickers profileId={profile.id} stickers={insights.stickers} /> : null}
 
-      {lastRead !== undefined && (resume || BUNDLED_BOOKS[0]) ? (
-        <ResumeCard book={resume ?? BUNDLED_BOOKS[0]} lastRead={resume ? lastRead : null} artworks={artworks} thumbs={thumbs} />
+      {lastRead !== undefined && (resume || books[0]) ? (
+        <ResumeCard book={resume ?? books[0]} lastRead={resume ? lastRead : null} artworks={artworks} thumbs={thumbs} />
       ) : null}
 
       {insights ? (
@@ -69,7 +73,7 @@ export function HomeScreen() {
           </Link>
         </div>
         <ul className="mt-5 flex gap-6 overflow-x-auto pb-4">
-          {BUNDLED_BOOKS.map((book) => (
+          {books.map((book) => (
             <li key={book.id} className="w-40 shrink-0 sm:w-48">
               <BookCard book={book} progress={bookProgress(book, artworks)} eager />
             </li>

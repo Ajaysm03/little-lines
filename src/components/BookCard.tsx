@@ -16,7 +16,7 @@ export function BookCard({ book, progress, eager }: { book: Book; progress: Book
           className="transition-transform duration-200 group-hover:-translate-y-1 group-active:scale-[0.98]"
         />
         {progress.status === 'finished' ? (
-          <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-meadow px-2.5 py-1 text-[0.8125rem] font-bold text-white shadow-lift">
+          <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-meadow-ink px-2.5 py-1 text-[0.8125rem] font-bold text-white shadow-lift">
             <Check className="size-4" strokeWidth={3} /> Finished
           </span>
         ) : null}
@@ -87,7 +87,7 @@ export function PageTile({
           className="shadow-paper transition-transform duration-200 group-hover:-translate-y-1 group-active:scale-[0.98]"
         />
         {done ? (
-          <span className="absolute top-2 right-2 grid size-8 place-items-center rounded-full bg-meadow text-white shadow-lift">
+          <span className="absolute top-2 right-2 grid size-8 place-items-center rounded-full bg-meadow-ink text-white shadow-lift">
             <Check className="size-5" strokeWidth={3} aria-label="Finished" />
           </span>
         ) : null}

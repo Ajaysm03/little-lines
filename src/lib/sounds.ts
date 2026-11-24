@@ -127,3 +127,154 @@ export function playCelebration(): void {
     osc.stop(start + 0.2)
   }
 }
+
+// ── Drawing sounds ──────────────────────────────────────────────────────────
+
+const SCRIBBLE: Record<string, { type: BiquadFilterType; freq: number; q: number; gain: number }> = {
+  crayon: { type: 'bandpass', freq: 1700, q: 0.8, gain: 0.22 },
+  pencil: { type: 'bandpass', freq: 3600, q: 1.1, gain: 0.16 },
+  marker: { type: 'bandpass', freq: 900, q: 0.7, gain: 0.1 },
+  watercolor: { type: 'lowpass', freq: 650, q: 0.5, gain: 0.12 },
+  glitter: { type: 'highpass', freq: 5200, q: 0.7, gain: 0.08 },
+  eraser: { type: 'bandpass', freq: 2400, q: 0.9, gain: 0.2 },
+}
+
+/**
+ * A quiet scratch that follows the stroke: louder when the pencil moves fast,
+ * silent when it stops. Each tool has its own tone.
+ */
+export class ScribbleSound {
+  private src: AudioBufferSourceNode | null = null
+  private gain: GainNode | null = null
+  private level = 0.15
+
+  start(tool: string) {
+    this.stop()
+    if (!usePrefs.getState().drawSounds) return
+    const ac = audio()
+    const spec = SCRIBBLE[tool]
+    if (!ac || !spec) return
+    const src = ac.createBufferSource()
+    src.buffer = noiseBuffer(ac)
+    src.loop = true
+    src.playbackRate.value = 1.6
+    const filter = ac.createBiquadFilter()
+    filter.type = spec.type
+    filter.frequency.value = spec.freq
+    filter.Q.value = spec.q
+    const gain = ac.createGain()
+    gain.gain.value = 0
+    src.connect(filter).connect(gain).connect(ac.destination)
+    src.start()
+    this.src = src
+    this.gain = gain
+    this.level = spec.gain
+  }
+
+  /** `speed` in page pixels per millisecond. */
+  update(speed: number) {
+    if (!this.gain || !ctx) return
+    const target = Math.min(1, speed / 2.2) * this.level
+    this.gain.gain.setTargetAtTime(target, ctx.currentTime, 0.03)
+  }
+
+  stop() {
+    if (this.src && this.gain && ctx) {
+      const src = this.src
+      this.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.04)
+      setTimeout(() => {
+        try {
+          src.stop()
+        } catch {
+          /* already stopped */
+        }
+      }, 200)
+    }
+    this.src = null
+    this.gain = null
+  }
+}
+
+// ── Fireplace ───────────────────────────────────────────────────────────────
+
+/**
+ * A soft crackling fire: low rumble plus random pops and snaps. Returns a stop
+ * function. Browsers may hold audio until the first tap; it starts then.
+ */
+export function startFireplace(): () => void {
+  const ac = (() => {
+    try {
+      if (!ctx) {
+        const Ctor = window.AudioContext ?? (window as WebkitWindow).webkitAudioContext
+        if (!Ctor) return null
+        ctx = new Ctor()
+      }
+      return ctx
+    } catch {
+      return null
+    }
+  })()
+  if (!ac) return () => {}
+  let stopped = false
+  const resume = () => void ac.resume()
+  if (ac.state === 'suspended') {
+    resume()
+    window.addEventListener('pointerdown', resume, { once: true })
+  }
+
+  const master = ac.createGain()
+  master.gain.value = 0
+  master.gain.setTargetAtTime(0.5, ac.currentTime, 1.2)
+  master.connect(ac.destination)
+
+  // Rumble: looped brown noise through a low-pass filter.
+  const rumble = ac.createBufferSource()
+  rumble.buffer = noiseBuffer(ac)
+  rumble.loop = true
+  const low = ac.createBiquadFilter()
+  low.type = 'lowpass'
+  low.frequency.value = 260
+  const rumbleGain = ac.createGain()
+  rumbleGain.gain.value = 0.35
+  rumble.connect(low).connect(rumbleGain).connect(master)
+  rumble.start()
+
+  // Crackles: short, bright noise bursts at random moments.
+  let timer = 0
+  const crackle = () => {
+    if (stopped) return
+    const t = ac.currentTime
+    const burst = ac.createBufferSource()
+    burst.buffer = noiseBuffer(ac)
+    burst.playbackRate.value = 1.5 + Math.random() * 2
+    const band = ac.createBiquadFilter()
+    band.type = 'bandpass'
+    band.frequency.value = 1500 + Math.random() * 4000
+    band.Q.value = 1.5
+    const g = ac.createGain()
+    const peak = 0.08 + Math.random() * (Math.random() < 0.15 ? 0.5 : 0.18)
+    g.gain.setValueAtTime(0.0001, t)
+    g.gain.exponentialRampToValueAtTime(peak, t + 0.004)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.02 + Math.random() * 0.06)
+    burst.connect(band).connect(g).connect(master)
+    burst.start(t, Math.random() * 0.8)
+    burst.stop(t + 0.12)
+    timer = window.setTimeout(crackle, 40 + Math.random() * (Math.random() < 0.3 ? 900 : 260))
+  }
+  crackle()
+
+  return () => {
+    stopped = true
+    clearTimeout(timer)
+    window.removeEventListener('pointerdown', resume)
+    master.gain.setTargetAtTime(0, ac.currentTime, 0.3)
+    setTimeout(() => {
+      try {
+        rumble.stop()
+      } catch {
+        /* already stopped */
+      }
+      master.disconnect()
+    }, 1500)
+  }
+}

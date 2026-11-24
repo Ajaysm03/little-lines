@@ -1,6 +1,8 @@
 import { ButtonLink } from '../components/ui'
+import { useTitle } from '../lib/useTitle'
 
 export function NotFound() {
+  useTitle('Page not found')
   return (
     <main className="grid min-h-[70dvh] place-items-center px-4 text-center">
       <div className="flex flex-col items-center">
