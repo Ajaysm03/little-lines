@@ -1,5 +1,5 @@
 import { Resend } from 'resend'
-import { env } from './env'
+import { env } from './env.js'
 
 /** The last reset email, for tests and for local development without Resend. */
 export const outbox: Array<{ to: string; url: string }> = []

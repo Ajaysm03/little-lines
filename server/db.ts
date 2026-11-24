@@ -1,5 +1,5 @@
 import pg from 'pg'
-import { env } from './env'
+import { env } from './env.js'
 
 /**
  * One connection pool per server instance. Neon needs TLS; the local PGlite

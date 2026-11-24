@@ -3,10 +3,10 @@
  * Values come from SEED_* in .env (see .env.example). Running it again leaves
  * an existing test account alone.
  */
-import { hashSecret, PIN_ITERATIONS } from '../../src/lib/crypto'
-import { getAuth } from '../auth'
-import { getPool, query } from '../db'
-import { migrate } from '../migrate'
+import { hashSecret, PIN_ITERATIONS } from '../../src/lib/crypto.js'
+import { getAuth } from '../auth.js'
+import { getPool, query } from '../db.js'
+import { migrate } from '../migrate.js'
 
 const SEED = {
   name: process.env.SEED_NAME || 'Test Parent',

@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { fromNodeHeaders, toNodeHandler } from 'better-auth/node'
-import { getAuth } from './auth'
-import { query } from './db'
-import { googleEnabled } from './env'
+import { getAuth } from './auth.js'
+import { query } from './db.js'
+import { googleEnabled } from './env.js'
 
 /**
  * Every /api request. Runs as one Vercel function in production and inside the

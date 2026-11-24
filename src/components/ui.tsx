@@ -1,4 +1,5 @@
-import { forwardRef, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
+import { forwardRef, useId, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react'
 import { Link, type LinkProps } from 'react-router'
 
 export function cn(...parts: Array<string | false | null | undefined>) {
@@ -76,24 +77,42 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function T
 ) {
   const autoId = useId()
   const inputId = id ?? autoId
+  // Password fields get an eye button to show what was typed.
+  const isPassword = rest.type === 'password'
+  const [shown, setShown] = useState(false)
   const describedBy = error ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
       <label htmlFor={inputId} className="font-semibold text-ink-deep">
         {label}
       </label>
-      <input
-        ref={ref}
-        id={inputId}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy}
-        className={cn(
-          'min-h-13 rounded-2xl bg-paper px-4 text-[1.0625rem] text-ink-deep ring-2 ring-inset outline-none transition-shadow placeholder:text-graphite/60',
-          'focus:ring-sky',
-          error ? 'ring-error/60' : 'ring-mist',
-        )}
-        {...rest}
-      />
+      <div className="relative">
+        <input
+          ref={ref}
+          id={inputId}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
+          className={cn(
+            'min-h-13 w-full rounded-2xl bg-paper px-4 text-[1.0625rem] text-ink-deep ring-2 ring-inset outline-none transition-shadow placeholder:text-graphite/60',
+            'focus:ring-sky',
+            error ? 'ring-error/60' : 'ring-mist',
+            isPassword && 'pr-14',
+          )}
+          {...rest}
+          type={isPassword && shown ? 'text' : rest.type}
+        />
+        {isPassword ? (
+          <button
+            type="button"
+            onClick={() => setShown((v) => !v)}
+            aria-label={shown ? 'Hide password' : 'Show password'}
+            aria-pressed={shown}
+            className="absolute top-1/2 right-1.5 grid size-11 -translate-y-1/2 place-items-center rounded-full text-graphite hover:bg-frost hover:text-ink"
+          >
+            {shown ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+          </button>
+        ) : null}
+      </div>
       {error ? (
         <p id={`${inputId}-error`} className="text-[0.9375rem] text-error">
           {error}

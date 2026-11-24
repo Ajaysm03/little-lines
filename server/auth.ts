@@ -1,7 +1,7 @@
 import { betterAuth } from 'better-auth'
-import { getPool } from './db'
-import { sendPasswordReset } from './email'
-import { env, googleEnabled } from './env'
+import { getPool } from './db.js'
+import { sendPasswordReset } from './email.js'
+import { env, googleEnabled } from './env.js'
 
 /**
  * Sign-in for grown-ups: email and password, Google, and password reset by

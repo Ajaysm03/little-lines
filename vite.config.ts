@@ -20,7 +20,7 @@ function apiDevServer(): Plugin {
         server.middlewares.use(async (req, res, next) => {
           if (!req.url?.startsWith('/api')) return next()
           try {
-            const mod = (await server.ssrLoadModule('/server/app.ts')) as typeof import('./server/app')
+            const mod = (await server.ssrLoadModule('/server/app.ts')) as typeof import('./server/app.js')
             await mod.handle(req, res)
           } catch (err) {
             next(err)

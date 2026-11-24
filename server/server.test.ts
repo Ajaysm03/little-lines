@@ -13,8 +13,8 @@ let pglite: PGlite
 let socket: PGLiteSocketServer
 let http: Server
 let base = ''
-let app: typeof import('./app')
-let email: typeof import('./email')
+let app: typeof import('./app.js')
+let email: typeof import('./email.js')
 
 beforeAll(async () => {
   pglite = await PGlite.create()
@@ -24,14 +24,14 @@ beforeAll(async () => {
   process.env.DATABASE_URL = `postgres://postgres:postgres@127.0.0.1:${port}/postgres`
   process.env.BETTER_AUTH_SECRET = 'test-secret-test-secret-test-secret-1234'
   process.env.RESEND_API_KEY = ''
-  const { resetPool } = await import('./db')
-  const { resetAuth } = await import('./auth')
+  const { resetPool } = await import('./db.js')
+  const { resetAuth } = await import('./auth.js')
   await resetPool()
   resetAuth()
-  const { migrate } = await import('./migrate')
+  const { migrate } = await import('./migrate.js')
   await migrate()
-  app = await import('./app')
-  email = await import('./email')
+  app = await import('./app.js')
+  email = await import('./email.js')
   http = createServer((req, res) => void app.handle(req, res))
   await new Promise<void>((r) => http.listen(0, '127.0.0.1', r))
   base = `http://127.0.0.1:${(http.address() as AddressInfo).port}`
@@ -41,7 +41,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   http?.close()
-  const { resetPool } = await import('./db')
+  const { resetPool } = await import('./db.js')
   await resetPool()
   await socket?.stop()
   await pglite?.close()
@@ -171,7 +171,7 @@ describe('server', () => {
   })
 
   it('sends Google sign-in to Google with the right return address once keys are set', async () => {
-    const { resetAuth } = await import('./auth')
+    const { resetAuth } = await import('./auth.js')
     process.env.GOOGLE_CLIENT_ID = 'test-client-id.apps.googleusercontent.com'
     process.env.GOOGLE_CLIENT_SECRET = 'test-client-secret'
     resetAuth()

@@ -1,6 +1,6 @@
 import { getMigrations } from 'better-auth/db/migration'
-import { getAuth } from './auth'
-import { query } from './db'
+import { getAuth } from './auth.js'
+import { query } from './db.js'
 
 /**
  * Creates or updates every table: Better Auth's (user, session, account,
