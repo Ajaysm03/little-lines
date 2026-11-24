@@ -1,0 +1,92 @@
+@import '@fontsource-variable/shantell-sans/full.css';
+@import '@fontsource-variable/atkinson-hyperlegible-next/index.css';
+@import 'tailwindcss';
+
+/*
+ * Little Lines design tokens
+ * Paper and pencil-box ink stay quiet so the colored pages carry the color.
+ * The six crayons are identity colors: each child picks one.
+ */
+@theme {
+  --font-display: 'Shantell Sans Variable', 'Comic Neue', ui-rounded, system-ui, sans-serif;
+  --font-sans: 'Atkinson Hyperlegible Next Variable', ui-sans-serif, system-ui, sans-serif;
+
+  --color-snow: #f3f5fa;
+  --color-frost: #e9edf6;
+  --color-mist: #dce1ec;
+  --color-paper: #ffffff;
+  --color-graphite: #5b6180;
+  --color-ink: #2b2f6b;
+  --color-ink-deep: #1b1e45;
+
+  --color-cranberry: #e0475b;
+  --color-tangerine: #f28a2e;
+  --color-sunflower: #f2c230;
+  --color-meadow: #3ba55c;
+  --color-sky: #3d8be8;
+  --color-grape: #8559d9;
+
+  --color-error: #b8283f;
+
+  --text-display: clamp(2.5rem, 2rem + 2.4vw, 3.75rem);
+  --text-display--line-height: 1.05;
+  --text-title: 2.125rem;
+  --text-title--line-height: 1.15;
+  --text-heading: 1.5rem;
+  --text-heading--line-height: 1.25;
+  --text-body: 1.0625rem;
+  --text-body--line-height: 1.55;
+
+  --shadow-paper: 0 1px 0 rgb(27 30 69 / 0.05), 0 18px 40px -18px rgb(27 30 69 / 0.35);
+  --shadow-book: 1px 1px 0 rgb(27 30 69 / 0.08), 0 14px 28px -12px rgb(27 30 69 / 0.45);
+  --shadow-lift: 0 2px 0 rgb(27 30 69 / 0.06), 0 10px 24px -14px rgb(27 30 69 / 0.4);
+
+  --animate-shake: shake 0.36s ease-in-out;
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    text-size-adjust: 100%;
+  }
+  body {
+    background: var(--color-snow);
+    color: var(--color-ink-deep);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Hand-drawn display voice: a little informal, a little bounce. */
+  .font-display {
+    font-variation-settings: 'INFM' 55, 'BNCE' 35;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-sky);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

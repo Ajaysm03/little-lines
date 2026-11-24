@@ -1,0 +1,91 @@
+[
+  {
+    "id": "cozy-christmas",
+    "title": "Cozy Christmas",
+    "subtitle": "A coloring book for kids & families",
+    "description": "Step into heart-warming Christmas scenes: trim the tree, peek inside Santa’s busy workshop, bake gingerbread cookies with Grandma and skate on a frozen pond with woodland friends.",
+    "ageRange": "8–12 and the whole family",
+    "tags": [
+      "Christmas",
+      "Winter",
+      "Family",
+      "Animals"
+    ],
+    "theme": {
+      "accent": "#C8283A",
+      "deep": "#1D2F5C",
+      "glow": "#F2B84B",
+      "palette": [
+        "#C8283A",
+        "#8E1B2A",
+        "#F06B5B",
+        "#2F7D4F",
+        "#1F5A3A",
+        "#7CB66B",
+        "#F2B84B",
+        "#D98A2B",
+        "#8A5A3B",
+        "#5B3A29",
+        "#F4D7B8",
+        "#E8A98A",
+        "#2E4F8C",
+        "#7FA7D9",
+        "#CFE3F2",
+        "#FFFFFF",
+        "#9AA3B5",
+        "#3A3A44"
+      ]
+    },
+    "origin": "bundled",
+    "pageSize": {
+      "width": 1600,
+      "height": 2263
+    },
+    "cover": "/books/cozy-christmas/cover-front.webp",
+    "coverThumb": "/books/cozy-christmas/cover-front-thumb.webp",
+    "pages": [
+      {
+        "id": "front-cover",
+        "kind": "front-cover",
+        "title": "Front cover",
+        "image": "/books/cozy-christmas/cover-front.webp",
+        "thumb": "/books/cozy-christmas/cover-front-thumb.webp"
+      },
+      {
+        "id": "01-trimming-the-tree",
+        "kind": "line-art",
+        "title": "Trimming the Tree",
+        "image": "/books/cozy-christmas/pages/01-trimming-the-tree.png",
+        "thumb": "/books/cozy-christmas/thumbs/01-trimming-the-tree.webp"
+      },
+      {
+        "id": "02-santas-workshop",
+        "kind": "line-art",
+        "title": "Santa’s Workshop",
+        "image": "/books/cozy-christmas/pages/02-santas-workshop.png",
+        "thumb": "/books/cozy-christmas/thumbs/02-santas-workshop.webp"
+      },
+      {
+        "id": "03-christmas-cookies",
+        "kind": "line-art",
+        "title": "Christmas Cookies",
+        "image": "/books/cozy-christmas/pages/03-christmas-cookies.png",
+        "thumb": "/books/cozy-christmas/thumbs/03-christmas-cookies.webp"
+      },
+      {
+        "id": "04-skating-on-the-pond",
+        "kind": "line-art",
+        "title": "Skating on the Pond",
+        "image": "/books/cozy-christmas/pages/04-skating-on-the-pond.png",
+        "thumb": "/books/cozy-christmas/thumbs/04-skating-on-the-pond.webp"
+      },
+      {
+        "id": "back-cover",
+        "kind": "back-cover",
+        "title": "Back cover",
+        "image": "/books/cozy-christmas/cover-back.webp",
+        "thumb": "/books/cozy-christmas/cover-back-thumb.webp"
+      }
+    ]
+  }
+]
