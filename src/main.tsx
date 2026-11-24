@@ -4,6 +4,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router'
 import './index.css'
 import { AppShell } from './screens/AppShell'
 import { BookScreen } from './screens/BookScreen'
+import { ColorScreen } from './screens/ColorScreen'
 import { GalleryScreen } from './screens/GalleryScreen'
 import { GrownUps } from './screens/GrownUps'
 import { IndexRedirect, ParentGate, PublicOnly, RequireAccount, RequireProfile, Root } from './screens/guards'
@@ -12,6 +13,7 @@ import { LibraryScreen } from './screens/LibraryScreen'
 import { NotFound } from './screens/NotFound'
 import { ProfileEditor } from './screens/ProfileEditor'
 import { ProfilePicker } from './screens/ProfilePicker'
+import { ReaderScreen } from './screens/ReaderScreen'
 import { SignUpScreen } from './screens/SignUpScreen'
 import { WelcomeScreen } from './screens/WelcomeScreen'
 
@@ -58,6 +60,8 @@ const router = createBrowserRouter([
           {
             element: <RequireProfile />,
             children: [
+              { path: 'books/:bookId/read', element: <ReaderScreen /> },
+              { path: 'color/:bookId/:pageId', element: <ColorScreen /> },
               {
                 element: <AppShell />,
                 children: [

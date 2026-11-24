@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../data/db'
-import type { Profile } from '../data/types'
+import { getLastRead, type LastRead } from '../data/events'
+import type { Artwork, Profile } from '../data/types'
 import { useSession } from './session-store'
 
 /** Profiles of the signed-in family, oldest first. `undefined` while loading. */
@@ -16,4 +17,16 @@ export function useProfiles(): Profile[] | undefined {
 export function useActiveProfile(): Profile | null | undefined {
   const profileId = useSession((s) => s.profileId)
   return useLiveQuery(async () => (profileId ? ((await db.profiles.get(profileId)) ?? null) : null), [profileId])
+}
+
+/** Every page the active child has colored, across all books. `undefined` while loading. */
+export function useProfileArtworks(): Artwork[] | undefined {
+  const profileId = useSession((s) => s.profileId)
+  return useLiveQuery(() => (profileId ? db.artworks.where('profileId').equals(profileId).toArray() : []), [profileId])
+}
+
+/** Where the active child last was in a book. `undefined` while loading, `null` if never. */
+export function useLastRead(): LastRead | null | undefined {
+  const profileId = useSession((s) => s.profileId)
+  return useLiveQuery(() => (profileId ? getLastRead(profileId) : null), [profileId])
 }

@@ -31,9 +31,15 @@ Canvas 2D + Pointer Events (pressure/tilt), Web Worker region map (fill + stay-i
 - Screens: welcome/login, sign-up (details → parent PIN), profile picker, profile editor (avatar, crayon, PIN), grown-ups area behind PIN, app shell (rail / bottom bar), home quick list, library, book detail, gallery empty state
 - Unit tests for hashing, accounts, profiles, PIN cool-down
 
-### Phase 2: Library, dashboard & realistic flip book
-- Library search/filters, progress badges, dashboard "continue coloring"
-- Flip book viewer: covers, page curl & shadow, swipe/keys/buttons, thumbnail strip, page-flip sound
+### Phase 2: Library, dashboard & realistic flip book ✅
+- Flip book reader (`/books/:id/read`): page-flip with curl + shadows, hard covers, spine shading, drag/swipe, arrow keys,
+  side buttons, thumbnail strip, `?page=` kept in the URL; two-page spreads on wide screens, single pages on portrait/phones
+- Tap a page (or the "Color" button under the book) to open it at `/color/:book/:page` (placeholder until Phase 3)
+- Page-flip sound synthesized with Web Audio, sound on/off saved per device
+- Reading is logged (`book_open`, `page_turn`) so Home can "pick up where you left off"
+- Home: resume card, book shelf with progress, pages-to-color quick list; Library: search, status and topic filters,
+  progress badges; Book page: open-the-book button, progress, page picker
+- Tests for progress roll-up, last-read lookup and spread layout
 
 ### Phase 3: Coloring engine (core)
 - Full-screen editor from a tapped page; layered canvas with line art always on top

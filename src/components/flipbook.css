@@ -1,0 +1,134 @@
+/* Flip book. page-flip positions and transforms the pages; this file dresses them. */
+
+.flipbook-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* page-flip injects `.stf__parent { position: relative }` after our CSS, so out-rank it. */
+.flipbook-stage > .flipbook-host,
+.flipbook-stage > .flipbook-host.stf__parent {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* page-flip measures this wrapper for its vertical centre, so it must fill the stage. */
+.flipbook-host .stf__wrapper {
+  height: 100%;
+}
+
+.flip-page {
+  background: #fff;
+  overflow: hidden;
+}
+
+.flip-page img {
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+/* Covers: board stock with a slight sheen. */
+.flip-page--front-cover,
+.flip-page--back-cover {
+  background: #1d2f5c;
+}
+.flip-cover-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.flip-page--front-cover::after,
+.flip-page--back-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, rgb(255 255 255 / 0.16), transparent 35%, transparent 70%, rgb(0 0 0 / 0.12));
+}
+/* Spine edge of the covers */
+.flip-page--front-cover::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4%;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgb(0 0 0 / 0.35), rgb(255 255 255 / 0.12) 60%, transparent);
+}
+.flip-page--back-cover::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 4%;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(270deg, rgb(0 0 0 / 0.35), rgb(255 255 255 / 0.12) 60%, transparent);
+}
+
+/* Interior pages: paper, the child's color, then the line art on top. */
+.flip-paper {
+  position: absolute;
+  inset: 0;
+  background: #fffefb;
+}
+.flip-color-layer,
+.flip-line-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Gutter: pages curve into the spine, so the inner edge is shaded. */
+.flip-page--line-art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.flip-page--line-art.--left::after {
+  background:
+    linear-gradient(270deg, rgb(27 30 69 / 0.22), rgb(27 30 69 / 0.06) 6%, transparent 14%),
+    linear-gradient(90deg, rgb(27 30 69 / 0.05), transparent 3%);
+}
+.flip-page--line-art.--right::after {
+  background:
+    linear-gradient(90deg, rgb(27 30 69 / 0.22), rgb(27 30 69 / 0.06) 6%, transparent 14%),
+    linear-gradient(270deg, rgb(27 30 69 / 0.05), transparent 3%);
+}
+
+/* Hover hint on pointer devices; touch screens get the hint under the book. */
+.flip-page--line-art {
+  cursor: pointer;
+}
+.flip-page--line-art::before {
+  content: 'Click to color';
+  position: absolute;
+  top: 4.5%;
+  left: 50%;
+  z-index: 2;
+  transform: translate(-50%, -4px);
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: #fff;
+  font: 600 0.875rem/1 var(--font-sans);
+  white-space: nowrap;
+  box-shadow: 0 8px 18px -8px rgb(27 30 69 / 0.6);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+@media (hover: hover) {
+  .flip-page--line-art:hover::before {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}

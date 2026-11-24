@@ -1,21 +1,43 @@
 import { Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router'
-import { BookCover } from '../components/BookCover'
-import { BUNDLED_BOOKS, colorablePages, type Book, type BookPage } from '../content/books'
+import { useMemo, useState, type ReactNode } from 'react'
+import { BookCard } from '../components/BookCard'
+import { cn } from '../components/ui'
+import { BUNDLED_BOOKS } from '../content/books'
+import { bookProgress, type BookStatus } from '../data/progress'
+import { useProfileArtworks } from '../state/hooks'
+
+const STATUSES: Array<{ id: BookStatus | 'all'; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'new', label: 'Not started' },
+  { id: 'in-progress', label: 'In progress' },
+  { id: 'finished', label: 'Finished' },
+]
+
+const ALL_TAGS = Array.from(new Set(BUNDLED_BOOKS.flatMap((b) => b.tags))).sort()
 
 export function LibraryScreen() {
+  const artworks = useProfileArtworks() ?? []
   const [query, setQuery] = useState('')
-  const books = useMemo(() => {
+  const [tag, setTag] = useState<string | null>(null)
+  const [status, setStatus] = useState<BookStatus | 'all'>('all')
+
+  const shelf = useMemo(() => BUNDLED_BOOKS.map((book) => ({ book, progress: bookProgress(book, artworks) })), [artworks])
+
+  const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return BUNDLED_BOOKS
-    return BUNDLED_BOOKS.filter(
-      (b) =>
-        b.title.toLowerCase().includes(q) ||
-        b.tags.some((t) => t.toLowerCase().includes(q)) ||
-        b.pages.some((p) => p.title.toLowerCase().includes(q)),
-    )
-  }, [query])
+    return shelf.filter(({ book, progress }) => {
+      if (tag && !book.tags.includes(tag)) return false
+      if (status !== 'all' && progress.status !== status) return false
+      if (!q) return true
+      return (
+        book.title.toLowerCase().includes(q) ||
+        book.tags.some((t) => t.toLowerCase().includes(q)) ||
+        book.pages.some((p) => p.title.toLowerCase().includes(q))
+      )
+    })
+  }, [shelf, query, tag, status])
+
+  const filtered = Boolean(query.trim() || tag || status !== 'all')
 
   return (
     <main className="w-full max-w-6xl px-4 pt-6 pb-12 sm:px-8 md:pt-10 lg:px-12">
@@ -34,17 +56,47 @@ export function LibraryScreen() {
         </label>
       </div>
 
-      {books.length === 0 ? (
-        <p className="mt-12 text-graphite">No books or pages match “{query}”. Try a different word.</p>
+      <div className="mt-6 flex flex-col gap-3">
+        <div role="radiogroup" aria-label="Show books" className="flex flex-wrap gap-2">
+          {STATUSES.map((s) => (
+            <Chip key={s.id} active={status === s.id} onClick={() => setStatus(s.id)} role="radio">
+              {s.label}
+            </Chip>
+          ))}
+        </div>
+        <div role="group" aria-label="Topics" className="flex flex-wrap gap-2">
+          {ALL_TAGS.map((t) => (
+            <Chip key={t} active={tag === t} onClick={() => setTag(tag === t ? null : t)} variant="tag">
+              {t}
+            </Chip>
+          ))}
+        </div>
+      </div>
+
+      {shown.length === 0 ? (
+        <div className="mt-12 max-w-md">
+          <p className="text-graphite">
+            {query.trim() ? `No books or pages match “${query.trim()}”.` : 'No books match these filters.'}
+          </p>
+          {filtered ? (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery('')
+                setTag(null)
+                setStatus('all')
+              }}
+              className="mt-3 font-semibold text-ink underline decoration-[var(--crayon)] decoration-[3px] underline-offset-4"
+            >
+              Show all books
+            </button>
+          ) : null}
+        </div>
       ) : (
         <ul className="mt-8 grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
-          {books.map((book) => (
+          {shown.map(({ book, progress }) => (
             <li key={book.id}>
-              <Link to={`/books/${book.id}`} className="group block rounded-md">
-                <BookCover book={book} className="transition-transform duration-200 group-hover:-translate-y-1 group-active:scale-[0.98]" />
-                <p className="mt-3 font-semibold text-ink-deep">{book.title}</p>
-                <p className="text-[0.9375rem] text-graphite">{colorablePages(book).length} pages to color</p>
-              </Link>
+              <BookCard book={book} progress={progress} />
             </li>
           ))}
         </ul>
@@ -53,14 +105,36 @@ export function LibraryScreen() {
   )
 }
 
-/** A line-art page on paper, used in quick lists. */
-export function PageTile({ book, page }: { book: Book; page: BookPage }) {
+function Chip({
+  active,
+  onClick,
+  children,
+  role,
+  variant = 'status',
+}: {
+  active: boolean
+  onClick: () => void
+  children: ReactNode
+  role?: 'radio'
+  variant?: 'status' | 'tag'
+}) {
   return (
-    <Link to={`/books/${book.id}`} className="group block rounded-md">
-      <span className="block aspect-[210/297] overflow-hidden rounded-[4px] bg-paper shadow-paper transition-transform duration-200 group-hover:-translate-y-1 group-active:scale-[0.98]">
-        <img src={page.thumb} alt="" loading="lazy" decoding="async" className="size-full object-cover" />
-      </span>
-      <span className="mt-3 block font-semibold text-ink-deep">{page.title}</span>
-    </Link>
+    <button
+      type="button"
+      role={role}
+      aria-checked={role === 'radio' ? active : undefined}
+      aria-pressed={role ? undefined : active}
+      onClick={onClick}
+      className={cn(
+        'min-h-10 rounded-full px-4 text-[0.9375rem] font-semibold transition-colors',
+        active
+          ? variant === 'status'
+            ? 'bg-ink text-white'
+            : 'bg-[color-mix(in_srgb,var(--crayon)_22%,white)] text-ink-deep ring-2 ring-inset ring-[var(--crayon)]'
+          : 'bg-paper text-ink ring-2 ring-inset ring-mist hover:ring-ink/30',
+      )}
+    >
+      {variant === 'tag' ? `#${children}` : children}
+    </button>
   )
 }
