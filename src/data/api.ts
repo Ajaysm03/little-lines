@@ -1,7 +1,8 @@
+import { usernameClient } from 'better-auth/client/plugins'
 import { createAuthClient } from 'better-auth/react'
 
-/** Sign-in, sign-up, Google, sign-out and password reset (Better Auth, served at /api/auth). */
-export const authClient = createAuthClient()
+/** Sign-in (email or the owner's username), sign-up, Google, sign-out and password reset (Better Auth, at /api/auth). */
+export const authClient = createAuthClient({ plugins: [usernameClient({ displayUsername: false })] })
 
 /** An error whose message is written for the person using the app. */
 export class ApiError extends Error {
@@ -30,7 +31,9 @@ export interface ServerFamily {
   id: string
   email: string
   name: string
-  role: 'admin' | 'parent'
+  /** Only the owner has one; grown-ups sign in with their email. */
+  username: string | null
+  role: 'owner' | 'parent'
   parentPinHash: string | null
   createdAt: number
   signInMethods: string[]
@@ -65,6 +68,13 @@ export const api = {
     return res.blob()
   },
   adminOverview: () => request<AdminOverview>('/api/admin/overview'),
+  adminAudit: (q: { before?: number; action?: string; limit?: number } = {}) => {
+    const params = new URLSearchParams()
+    if (q.before) params.set('before', String(q.before))
+    if (q.action) params.set('action', q.action)
+    if (q.limit) params.set('limit', String(q.limit))
+    return request<{ entries: AuditEntry[]; nextBefore: number | null }>(`/api/admin/audit?${params}`)
+  },
 }
 
 export interface RemoteProfile {
@@ -125,10 +135,24 @@ export interface PushBody {
 }
 
 export interface AdminOverview {
-  families: Array<{ id: string; name: string; email: string; role: 'admin' | 'parent'; createdAt: number; lastLoginAt: number }>
+  families: Array<{ id: string; name: string; email: string; role: 'owner' | 'parent'; createdAt: number; lastLoginAt: number }>
   profiles: Array<{ id: string; accountId: string }>
   events: Array<{ accountId: string; profileId: string | null; type: string; bookId?: string; pageId?: string; at: number; data?: Record<string, unknown> }>
   pagesFinished: number
+}
+
+export interface AuditEntry {
+  id: number
+  actorId: string | null
+  actorLabel: string
+  action: string
+  targetType: string | null
+  targetId: string | null
+  summary: string
+  before: unknown
+  after: unknown
+  context: { ip?: string; browser?: string } | null
+  at: number
 }
 
 /** Friendly words for Better Auth's error codes. */
@@ -138,6 +162,9 @@ export function authErrorMessage(error: { code?: string; message?: string; statu
     case 'INVALID_PASSWORD':
     case 'INVALID_EMAIL':
       return 'That email and password don’t match an account.'
+    case 'INVALID_USERNAME_OR_PASSWORD':
+    case 'INVALID_USERNAME':
+      return 'That username and password don’t match an account.'
     case 'USER_ALREADY_EXISTS':
     case 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL':
       return 'An account with this email already exists. Log in instead, or reset the password.'

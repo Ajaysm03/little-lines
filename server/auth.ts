@@ -1,13 +1,17 @@
 import { betterAuth } from 'better-auth'
-import { getPool } from './db.js'
+import { username } from 'better-auth/plugins/username'
+import { audit } from './audit.js'
+import { getPool, query } from './db.js'
 import { sendPasswordReset } from './email.js'
 import { env, googleEnabled } from './env.js'
 
 /**
  * Sign-in for grown-ups: email and password, Google, and password reset by
- * email. Users, sessions and reset tokens are stored in the Neon database by
- * Better Auth; children never sign in, they pick a profile under the account.
+ * email. The owner can also sign in with a username (set by npm run
+ * owner:create). Users, sessions and reset tokens are stored in the Neon
+ * database by Better Auth; children never sign in, they pick a profile.
  */
+export const USERNAME_PATTERN = /^[a-z0-9_.]{3,30}$/
 function createAuth() {
   return betterAuth({
     appName: 'Little Lines',
@@ -41,6 +45,37 @@ function createAuth() {
     session: {
       expiresIn: 60 * 60 * 24 * 30,
       updateAge: 60 * 60 * 24,
+    },
+    plugins: [
+      username({
+        displayUsername: false,
+        minUsernameLength: 3,
+        maxUsernameLength: 30,
+        usernameValidator: (u) => USERNAME_PATTERN.test(u),
+      }),
+    ],
+    databaseHooks: {
+      session: {
+        create: {
+          // Every owner sign-in goes in the audit log, with where it came from.
+          after: async (session) => {
+            const { rows } = await query<{ role: string; username: string | null; email: string }>(
+              `select f.role, u.username, u.email from app_family f join "user" u on u.id = f.user_id where f.user_id = $1`,
+              [session.userId],
+            )
+            if (rows[0]?.role !== 'owner') return
+            await audit({
+              actorId: session.userId,
+              actorLabel: rows[0].username ?? rows[0].email,
+              action: 'owner.signed_in',
+              targetType: 'user',
+              targetId: session.userId,
+              summary: 'Owner signed in',
+              context: { ip: session.ipAddress, browser: session.userAgent },
+            }).catch((err) => console.error('[audit]', err))
+          },
+        },
+      },
     },
   })
 }

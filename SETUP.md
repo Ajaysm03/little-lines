@@ -66,6 +66,12 @@ link in the `npm run dev` terminal; open it in the browser to finish the flow.
    ```
 
    Both are safe to run again. Run `db:migrate` after pulling app updates that change the database.
+
+   Then make yourself the owner (super admin); it asks for your username and password privately:
+
+   ```bash
+   npm run owner:create
+   ```
 5. Restart `npm run dev`. You're now using Neon. (You can stop `npm run db:local`.)
 
 Tip: in Neon, **Branches → Create branch** gives you a `dev` copy of the database. Use the dev branch's
@@ -122,6 +128,10 @@ Reset links are valid for one hour and work once. Resetting signs the family out
    `RESEND_API_KEY`, `EMAIL_FROM`. Don't add the `SEED_*` values to production.
 4. Run `npm run db:migrate` once against the production database (temporarily point `.env` at it), then
    **Deploy**.
+
+**Updating the live app:** when an update changes the database, run `npm run db:migrate` against the
+production database *before* pushing. The new code expects the new columns; without them sign-in stops working
+until the migration runs.
 5. Add the live address to Google (step 2.3) if you haven't. On an iPad, open the live address in Safari and
    use **Share → Add to Home Screen**: the app installs and works offline, and syncs when back online.
 

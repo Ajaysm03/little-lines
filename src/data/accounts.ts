@@ -40,6 +40,7 @@ export async function saveFamily(f: ServerFamily): Promise<PublicAccount> {
     name: f.name,
     parentPinHash: f.parentPinHash,
     role: f.role,
+    username: f.username,
     signInMethods: f.signInMethods,
     createdAt: f.createdAt,
     lastLoginAt: prev?.lastLoginAt ?? Date.now(),

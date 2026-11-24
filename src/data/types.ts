@@ -1,4 +1,5 @@
-export type Role = 'admin' | 'parent'
+/** owner: runs Little Lines (the console). parent: a family's grown-up. */
+export type Role = 'owner' | 'parent'
 
 /**
  * The signed-in family, cached on the device so the app works offline. Sign-in
@@ -11,8 +12,9 @@ export interface Account {
   name: string
   /** 4-digit PIN that unlocks the grown-ups area; null until set (e.g. after a Google sign-up). */
   parentPinHash: string | null
-  /** The first family on the server is the admin. */
   role: Role
+  /** The owner signs in with a username too; grown-ups use their email. */
+  username?: string | null
   /** "password", "google". */
   signInMethods?: string[]
   createdAt: number

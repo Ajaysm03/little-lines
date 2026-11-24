@@ -68,13 +68,13 @@ describe('server', () => {
     expect(await res.json()).toEqual({ google: false })
   })
 
-  it('signs up, makes the first family the admin, and keeps the API behind sign-in', async () => {
+  it('signs up grown-ups (never as owner) and keeps the API behind sign-in', async () => {
     expect((await fetch(`${base}/api/me`)).status).toBe(401)
     const a = browser()
     const up = await a('/api/auth/sign-up/email', { method: 'POST', json: { name: 'Ana', email: 'ana@example.test', password: 'crayons-123' } })
     expect(up.status).toBe(200)
     const me = await (await a('/api/me')).json()
-    expect(me).toMatchObject({ email: 'ana@example.test', role: 'admin', parentPinHash: null, signInMethods: ['password'] })
+    expect(me).toMatchObject({ email: 'ana@example.test', role: 'parent', username: null, parentPinHash: null, signInMethods: ['password'] })
 
     const b = browser()
     await b('/api/auth/sign-up/email', { method: 'POST', json: { name: 'Ben', email: 'ben@example.test', password: 'crayons-456' } })
@@ -159,15 +159,86 @@ describe('server', () => {
     expect((await (await phone('/api/sync?since=0')).json()).profiles[0].name).toBe('Maya')
   }, 30_000)
 
-  it('gives the all-families overview to the admin only', async () => {
-    const admin = browser()
-    await admin('/api/auth/sign-in/email', { method: 'POST', json: { email: 'ana@example.test', password: 'new-crayons-1' } })
-    const o = await (await admin('/api/admin/overview')).json()
-    expect(o.families).toHaveLength(2)
+  it('makes the owner from the terminal, signs them in by username, and keeps the console theirs', async () => {
+    const { createOrUpdateOwner } = await import('./owner.js')
+    await expect(createOrUpdateOwner({ username: 'Boss', email: 'boss@example.test', name: 'Boss', password: 'short' })).rejects.toThrow(/Username|12 characters/)
+    const { created } = await createOrUpdateOwner({ username: 'boss', email: 'boss@example.test', name: 'The Owner', password: 'owner-password-1' })
+    expect(created).toBe(true)
+
+    const owner = browser()
+    expect((await owner('/api/auth/sign-in/username', { method: 'POST', json: { username: 'boss', password: 'wrong-password-1' } })).status).toBe(401)
+    expect((await owner('/api/auth/sign-in/username', { method: 'POST', json: { username: 'boss', password: 'owner-password-1' } })).status).toBe(200)
+    expect(await (await owner('/api/me')).json()).toMatchObject({ role: 'owner', username: 'boss', email: 'boss@example.test' })
+
+    // The overview lists families, not the owner.
+    const o = await (await owner('/api/admin/overview')).json()
+    expect(o.families.map((f: { email: string }) => f.email).sort()).toEqual(['ana@example.test', 'ben@example.test'])
     expect(o.profiles).toHaveLength(1)
+
+    // Creation and the sign-in are in the audit log, newest first; filters work.
+    const log = await (await owner('/api/admin/audit')).json()
+    expect(log.entries.map((e: { action: string }) => e.action).slice(0, 2)).toEqual(['owner.signed_in', 'owner.created'])
+    expect(log.entries[0].context.ip ?? log.entries[0].context.browser).toBeTruthy()
+    const signins = await (await owner('/api/admin/audit?action=owner.signed_in')).json()
+    expect(signins.entries.map((e: { action: string }) => e.action)).toEqual(['owner.signed_in'])
+    const account = await (await owner('/api/admin/audit?action=owner.created,role.')).json()
+    expect(account.entries.map((e: { action: string }) => e.action)).toEqual(['owner.created'])
+
+    // Grown-ups can't open the console.
     const parent = browser()
     await parent('/api/auth/sign-in/email', { method: 'POST', json: { email: 'ben@example.test', password: 'crayons-456' } })
     expect((await parent('/api/admin/overview')).status).toBe(403)
+    expect((await parent('/api/admin/audit')).status).toBe(403)
+
+    // Running owner:create again changes the password and signs the owner out everywhere.
+    expect((await createOrUpdateOwner({ username: 'boss', email: 'boss@example.test', name: 'The Owner', password: 'owner-password-2' })).created).toBe(false)
+    expect((await owner('/api/me')).status).toBe(401)
+    const again = browser()
+    expect((await again('/api/auth/sign-in/email', { method: 'POST', json: { email: 'boss@example.test', password: 'owner-password-2' } })).status).toBe(200)
+
+    // There is one owner: making Ben the owner turns Boss back into a grown-up.
+    await createOrUpdateOwner({ username: 'ben', email: 'ben@example.test', name: 'Ben', password: 'ben-owner-pass-1' })
+    expect((await (await again('/api/me')).json()).role).toBe('parent')
+    // Making Boss the owner again (which also signs Boss out) turns Ben back into a grown-up.
+    await createOrUpdateOwner({ username: 'boss', email: 'boss@example.test', name: 'The Owner', password: 'owner-password-2' })
+    expect((await again('/api/me')).status).toBe(401)
+    const { query } = await import('./db.js')
+    const roles = await query<{ email: string; role: string }>(`select u.email, f.role from app_family f join "user" u on u.id = f.user_id where f.role = 'owner'`)
+    expect(roles.rows).toEqual([{ email: 'boss@example.test', role: 'owner' }])
+  })
+
+  it('retires the old admin role when migrating', async () => {
+    const { query } = await import('./db.js')
+    const { migrate } = await import('./migrate.js')
+    await query(`update app_family set role = 'admin' where user_id = (select id from "user" where email = 'ana@example.test')`)
+    await migrate()
+    const { rows } = await query<{ role: string }>(`select role from app_family f join "user" u on u.id = f.user_id where u.email = 'ana@example.test'`)
+    expect(rows[0].role).toBe('parent')
+    const { rows: log } = await query<{ action: string }>(`select action from app_audit order by id desc limit 1`)
+    expect(log[0].action).toBe('role.changed')
+  })
+
+  it('lets grown-ups keep their imported books but not add new ones', async () => {
+    const { query } = await import('./db.js')
+    const ana = browser()
+    await ana('/api/auth/sign-in/email', { method: 'POST', json: { email: 'ana@example.test', password: 'new-crayons-1' } })
+    const anaId = (await (await ana('/api/me')).json()).id
+    await query(`insert into app_book (id, user_id, meta, updated_at, deleted, server_at) values ('imported-old', $1, '{"title":"Old"}', 1, false, 1)`, [anaId])
+
+    const push = await ana('/api/sync', {
+      method: 'POST',
+      json: { books: [{ id: 'imported-new', meta: { title: 'New' }, updatedAt: 5, deleted: false }, { id: 'imported-old', meta: { title: 'Old, renamed' }, updatedAt: 5, deleted: false }] },
+    })
+    expect(push.status).toBe(200)
+    const { rows } = await query<{ id: string; meta: { title: string } }>('select id, meta from app_book where user_id = $1 order by id', [anaId])
+    expect(rows.map((r) => [r.id, r.meta.title])).toEqual([['imported-old', 'Old, renamed']])
+
+    // Images for a book the server doesn't have are accepted but not stored, so the device's outbox moves on.
+    const png = new Uint8Array([137, 80, 78, 71])
+    const put = await ana('/api/blob?key=book:imported-new/p01', { method: 'PUT', headers: { 'content-type': 'image/png' }, body: png })
+    expect(await put.json()).toEqual({ ok: true, ignored: true })
+    expect((await ana('/api/blob?key=book:imported-new/p01')).status).toBe(404)
+    expect((await (await ana('/api/blob?key=book:imported-old/p01', { method: 'PUT', headers: { 'content-type': 'image/png' }, body: png })).json()).ok).toBe(true)
   })
 
   it('sends Google sign-in to Google with the right return address once keys are set', async () => {

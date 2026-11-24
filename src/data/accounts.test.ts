@@ -8,7 +8,8 @@ const family: ServerFamily = {
   id: 'user-1',
   email: 'parent@example.test',
   name: 'Ajay',
-  role: 'admin',
+  role: 'parent',
+  username: null,
   parentPinHash: null,
   createdAt: 1,
   signInMethods: ['password'],
@@ -23,7 +24,7 @@ beforeEach(() => {
 describe('the signed-in family', () => {
   it('caches the server family on the device without exposing the PIN hash', async () => {
     const pub = await accounts.saveFamily(family)
-    expect(pub).toMatchObject({ id: 'user-1', role: 'admin', hasParentPin: false })
+    expect(pub).toMatchObject({ id: 'user-1', role: 'parent', hasParentPin: false })
     expect(pub).not.toHaveProperty('parentPinHash')
     expect(await accounts.getAccount('user-1')).toMatchObject({ email: 'parent@example.test' })
   })

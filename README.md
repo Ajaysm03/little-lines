@@ -28,6 +28,7 @@ npm run dev        # http://localhost:5173, app and API together
 | `npm run db:local` | Local Postgres on port 5433 (PGlite), data in `.pglite/` |
 | `npm run db:migrate` | Create or update all tables in `DATABASE_URL` |
 | `npm run db:seed` | Migrate, then create the test family (from `SEED_*` in `.env`) |
+| `npm run owner:create` | Create or update the owner (super admin) login; asks for it privately |
 | `npm run assets` | Rebuild the bundled books from the art folders next to `app/` |
 | `npm run icons` | Rebuild app icons from `public/favicon.svg` |
 
@@ -88,3 +89,17 @@ src/state/                 Zustand stores (session, preferences, library) and li
 `npm run db:seed` creates a test family from the `SEED_*` values in `.env` (defaults in `.env.example`):
 the email and password to log in with, the parent PIN for the grown-ups area, and the PIN for the child profile
 "Leo" ("Maya" has none).
+
+## Owner console
+
+The owner (super admin) runs Little Lines from `/admin`: families, books, plans, emails and an audit log
+(see the "Owner console" section of PLAN.md). There is one owner, made with:
+
+```bash
+npm run owner:create
+```
+
+It asks for a username, email, name and password (at least 12 characters, hidden as you type) and saves them
+in the database `DATABASE_URL` points to. Log in with the username or the email; the owner goes straight to the
+console. Running it again changes the password and signs the owner out everywhere. Every owner sign-in and
+change is recorded in the audit log.

@@ -32,6 +32,7 @@ export function Splash() {
 export function IndexRedirect() {
   const { status, profileId, account } = useSession()
   if (status !== 'signed-in') return <Navigate to="/welcome" replace />
+  if (account?.role === 'owner') return <Navigate to="/admin" replace />
   if (account && !account.hasParentPin) return <Navigate to="/setup-pin" replace />
   return <Navigate to={profileId ? '/home' : '/profiles'} replace />
 }
@@ -45,10 +46,23 @@ export function PublicOnly() {
 export function RequireAccount() {
   const status = useSession((s) => s.status)
   const needsPin = useSession((s) => s.account !== null && !s.account.hasParentPin)
+  const isOwner = useSession((s) => s.account?.role === 'owner')
   const location = useLocation()
   if (status !== 'signed-in') return <Navigate to="/welcome" replace state={{ from: location.pathname }} />
+  // The owner has no children or PIN; the family screens aren't for them.
+  if (isOwner) return <Navigate to="/admin" replace />
   // Google sign-ups choose their parent PIN before anything else.
   if (needsPin && location.pathname !== '/setup-pin') return <Navigate to="/setup-pin" replace />
+  return <Outlet />
+}
+
+/** The owner console. Anyone else gets "page not found", so the console isn't advertised. */
+export function RequireOwner({ notFound }: { notFound: ReactNode }) {
+  const status = useSession((s) => s.status)
+  const role = useSession((s) => s.account?.role)
+  const location = useLocation()
+  if (status !== 'signed-in') return <Navigate to="/welcome" replace state={{ from: location.pathname }} />
+  if (role !== 'owner') return <>{notFound}</>
   return <Outlet />
 }
 

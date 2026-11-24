@@ -120,7 +120,7 @@ describe('stickers', () => {
 describe('computeDeviceStats', () => {
   it('summarises every family on the device', () => {
     const accounts: Account[] = [
-      { id: 'a1', email: 'a@x.test', name: 'A', parentPinHash: '', role: 'admin', createdAt: 0, lastLoginAt: NOW },
+      { id: 'a1', email: 'a@x.test', name: 'A', parentPinHash: '', role: 'owner', createdAt: 0, lastLoginAt: NOW },
       { id: 'a2', email: 'b@x.test', name: 'B', parentPinHash: '', role: 'parent', createdAt: 0, lastLoginAt: NOW - 1000 },
     ]
     const profiles: Profile[] = [

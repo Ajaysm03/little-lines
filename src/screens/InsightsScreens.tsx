@@ -4,7 +4,6 @@ import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router'
 import { Avatar } from '../components/Avatar'
 import { PagePreview, ProgressBar } from '../components/BookCard'
-import { BarList, ColumnChart } from '../components/charts'
 import { FavoriteColors, StreakDots, WeekPanel } from '../components/insights'
 import { StickerBadge } from '../components/Sticker'
 import { crayonHex } from '../content/profile-options'
@@ -12,7 +11,7 @@ import { formatDuration } from '../data/analytics'
 import { db } from '../data/db'
 import { bookProgress, progressLabel } from '../data/progress'
 import type { Profile } from '../data/types'
-import { useAllFamilies, useArtworkThumbs, useProfileInsights } from '../state/hooks'
+import { useArtworkThumbs, useProfileInsights } from '../state/hooks'
 import { getBook, useBooks } from '../state/library-store'
 import { useTitle } from '../lib/useTitle'
 import { useSession } from '../state/session-store'
@@ -197,116 +196,6 @@ export function ChildInsightsScreen() {
             </li>
           ))}
         </ul>
-      </Section>
-    </Page>
-  )
-}
-
-// ── Everything on this device (admin) ────────────────────────────────────────
-
-export function DeviceInsightsScreen() {
-  const role = useSession((s) => s.account?.role)
-  const result = useAllFamilies()
-  useTitle('All families')
-  if (role !== 'admin') return <NotFound />
-  if (!result) return <Splash />
-  const stats = result.stats
-  if (!stats)
-    return (
-      <Page back={{ to: '/grown-ups', label: 'Grown-ups' }}>
-        <h1 className="mt-6 font-display text-title font-extrabold text-ink-deep">All families</h1>
-        <p className="mt-3 text-graphite">{result.error} Connect to the internet and open this page again.</p>
-      </Page>
-    )
-  const dayFmt = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' })
-  const longFmt = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
-  const lastFmt = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
-
-  return (
-    <Page back={{ to: '/grown-ups', label: 'Grown-ups' }}>
-      <h1 className="mt-6 font-display text-title font-extrabold text-ink-deep">All families</h1>
-      <p className="mt-1 max-w-prose text-graphite">
-        Every family using Little Lines, from the server. Coloring activity covers the last 60 days.
-      </p>
-
-      <Section title="At a glance">
-        <dl className="grid grid-cols-2 gap-x-6 sm:grid-cols-3">
-          <Figure label="Families" value={String(stats.families)} />
-          <Figure label="Children" value={String(stats.children)} />
-          <Figure label="Children active this week" value={String(stats.activeChildren7d)} />
-          <Figure label="Time coloring" value={formatDuration(stats.totalMs)} />
-          <Figure label="Pages finished" value={String(stats.pagesFinished)} />
-          <Figure label="Average session" value={formatDuration(stats.avgSessionMs)} />
-        </dl>
-      </Section>
-
-      <Section title="Children coloring each day">
-        <div className="rounded-[28px] bg-paper p-5 shadow-paper sm:p-6">
-          <p className="mb-4 text-[0.9375rem] text-graphite">Last 14 days</p>
-          <ColumnChart
-            caption="Children who colored on each of the last 14 days"
-            color="#2b2f6b"
-            data={stats.dailyActive.map((d, i) => ({
-              key: d.key,
-              label: i % 2 === 1 ? dayFmt.format(d.date) : '',
-              value: d.count,
-              display: d.count === 1 ? '1 child' : `${d.count} children`,
-              name: longFmt.format(d.date),
-            }))}
-          />
-        </div>
-      </Section>
-
-      <Section title="Most-opened pages">
-        {stats.popularPages.length ? (
-          <BarList
-            caption="Pages opened for coloring most often"
-            color="#2b2f6b"
-            rows={stats.popularPages.map((p) => {
-              const book = getBook(p.bookId)
-              const page = book?.pages.find((x) => x.id === p.pageId)
-              return {
-                key: `${p.bookId}:${p.pageId}`,
-                label: page ? `${page.title}` : p.pageId,
-                value: p.opens,
-                display: `${p.opens} ${p.opens === 1 ? 'time' : 'times'}, ${formatDuration(p.ms).toLowerCase()}`,
-              }
-            })}
-          />
-        ) : (
-          <p className="text-graphite">No pages opened yet.</p>
-        )}
-      </Section>
-
-      <Section title="Families">
-        <div className="overflow-x-auto rounded-3xl bg-paper ring-2 ring-inset ring-mist">
-          <table className="w-full min-w-[34rem] text-left text-[0.9375rem]">
-            <thead>
-              <tr className="border-b-2 border-frost text-graphite">
-                <th scope="col" className="px-5 py-3 font-semibold">Grown-up</th>
-                <th scope="col" className="px-3 py-3 font-semibold">Children</th>
-                <th scope="col" className="px-3 py-3 font-semibold">Time coloring</th>
-                <th scope="col" className="px-5 py-3 font-semibold">Last login</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stats.familyRows.map((f) => (
-                <tr key={f.id} className="border-b border-frost last:border-0">
-                  <td className="px-5 py-3">
-                    <span className="block font-semibold text-ink-deep">
-                      {f.name}
-                      {f.role === 'admin' ? <span className="ml-2 rounded-full bg-frost px-2 py-0.5 text-[0.75rem] text-ink">Admin</span> : null}
-                    </span>
-                    <span className="block text-graphite">{f.email}</span>
-                  </td>
-                  <td className="px-3 py-3 text-ink-deep">{f.children}</td>
-                  <td className="px-3 py-3 text-ink-deep">{formatDuration(f.totalMs)}</td>
-                  <td className="px-5 py-3 text-ink-deep">{lastFmt.format(f.lastLoginAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </Section>
     </Page>
   )

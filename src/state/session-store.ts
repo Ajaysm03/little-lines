@@ -35,7 +35,8 @@ interface SessionState {
 
   init(): Promise<void>
   signUp(input: SignUpInput): Promise<void>
-  logIn(email: string, password: string): Promise<void>
+  /** `login` is an email, or the owner's username. */
+  logIn(login: string, password: string): Promise<void>
   /** Leaves for Google's sign-in page; comes back to the app signed in. */
   logInWithGoogle(): Promise<void>
   logOut(): Promise<void>
@@ -116,8 +117,11 @@ export const useSession = create<SessionState>((set, get) => ({
     set({ account, parentUnlockedUntil: Date.now() + PARENT_UNLOCK_MS })
   },
 
-  async logIn(email, password) {
-    const { error } = await authClient.signIn.email({ email: email.trim(), password })
+  async logIn(login, password) {
+    const id = login.trim()
+    const { error } = id.includes('@')
+      ? await authClient.signIn.email({ email: id, password })
+      : await authClient.signIn.username({ username: id.toLowerCase(), password })
     if (error) throw new AuthError(authErrorMessage(error))
     set({ parentUnlockedUntil: 0 })
     await enter(set)

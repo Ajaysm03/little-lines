@@ -112,6 +112,70 @@ Canvas 2D + Pointer Events (pressure/tilt), Web Worker region map (fill + stay-i
   (sign-up, login, reset, Google redirect, sync, family isolation, admin access)
 - Setup guide in SETUP.md
 
-## Ideas for later
+## Owner console (super admin)
+
+### Decisions
+- **Roles:** one *owner* (super admin: you) and *grown-ups* (each family's admin). Grown-ups can no longer import
+  PDFs; only the owner adds, edits and deletes books. The old "first account is admin" rule goes away.
+- **Owner login:** username or email + password. `npm run owner:create` asks for them privately in the terminal,
+  so the password never appears in chat or Git.
+- **Plans, no payments (for now):** Free / Trial / Premium with start and end dates, set by the owner. Premium books
+  are locked for families on Free. Stripe can be added later without changing the model.
+- **Book storage:** Neon (page images as compressed WebP in the database). Uploads go page by page (Vercel's
+  4.5 MB request limit).
+- **Old family imports** move into the catalog as drafts, keeping their ids so existing colorings still match.
+- **Inactive** = no login and no coloring for 30 days. Statuses: Active, Inactive, Never started, Suspended.
+- **Where:** a separate `/admin` console with a sidebar (Overview, Users, Books, Analytics, Emails, Audit log),
+  only the owner can open it; works on desktop and iPad.
+
+### Phase A: Owner account, roles & console shell ✅
+- `owner` and `parent` roles; existing `admin` rows become `parent`
+- Username sign-in (Better Auth username plugin); login field accepts "Email or username"
+- `npm run owner:create` (hidden password prompt, works against Neon or local)
+- Import removed for grown-ups (UI and API); the families' "All families" view moves to the console
+- `/admin` guard and console layout; the owner lands there after login
+- Audit log table: every owner action is recorded (who, what, when, before/after)
+- Built: owner sign-ins are logged with IP and browser; the console has Overview (families, activity, newest
+  families, recent activity) and Audit log (filters, details, older entries); Users, Books, Analytics and Emails
+  show what their phase adds. Grown-ups who already imported books keep them; new ones are ignored by the server
+
+### Phase B: Book catalog & publishing
+- Catalog tables (book + pages + images); Cozy Christmas listed as a built-in book
+- Upload a PDF (same in-browser conversion as today), live progress, page-by-page upload
+- Edit title, subtitle, description, category, age range, tags, theme; replace cover; rename, reorder and remove pages
+- Draft → preview (exactly as families see it) → publish / unpublish; archive and permanent delete (typed confirm)
+- Drag to reorder the library; "New" badge for 14 days after publishing; Free or Premium per book
+- Families get published books from the server (cached for offline); old family imports become drafts
+
+### Phase C: Plans & premium books
+- Plan per family: Free / Trial / Premium, start and end dates, notes; trial expiry handled automatically
+- New families start on a 14-day trial (changeable in settings)
+- Premium books show a lock for Free families with a gentle "ask a grown-up" message; Grown-ups → Plan shows
+  the family's plan and dates
+
+### Phase D: Users & management
+- Users list: name, username/email, joined, last login, last coloring, status, plan and end date, children, pages
+  colored; search, filters (status, plan, joined), sort, pagination, CSV export
+- User detail: children, recent activity, books used; change, extend or gift a plan; suspend / reactivate (signs
+  them out everywhere); send a password reset; delete account (typed confirm)
+- Audit log screen with filters
+
+### Phase E: Content & growth analytics
+- KPIs: families, new this week, daily / weekly / monthly active families, active rate, premium count, pages finished
+- Charts: sign-ups over time, active families over time, coloring minutes, plan mix
+- Per book: opens, pages colored, completion rate, most popular pages; date-range filter
+
+### Phase F: Family emails
+- Welcome email on sign-up; weekly progress digest for grown-ups (Vercel Cron, Monday morning); "New book"
+  announcement sent by the owner when publishing
+- Grown-ups → Email settings and a one-click unsubscribe link in every email
+- Console → Emails: preview, send a test to yourself, send history and counts
+- Real delivery needs RESEND_API_KEY and a verified sending domain; without it emails go to the server log
+
+### Ideas for later
+Two-step sign-in for the owner, scheduled publishing for seasonal books, families requesting books,
+a maintenance banner, Stripe payments on top of the plan model.
+
+## Ideas for later (coloring)
 Time-lapse replay and video export, stickers and stamps on pages, color-by-number, real-time co-coloring,
 symmetry tool, cloud sync (Supabase) so families share progress across devices.

@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { fromNodeHeaders, toNodeHandler } from 'better-auth/node'
+import { listAudit } from './audit.js'
 import { getAuth } from './auth.js'
 import { query } from './db.js'
 import { googleEnabled } from './env.js'
@@ -13,7 +14,7 @@ import { googleEnabled } from './env.js'
  *   /api/me            the signed-in family; PUT /api/me/pin sets the parent PIN
  *   /api/sync          pull changes since a time (GET) and push local changes (POST)
  *   /api/blob?key=     page images and colorings (GET / PUT)
- *   /api/admin/overview  totals across all families (admin only)
+ *   /api/admin/*       the owner console (owner only): overview, audit log
  */
 
 const MAX_JSON = 2 * 1024 * 1024
@@ -63,9 +64,33 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
       const key = url.searchParams.get('key') ?? ''
       if (!/^(art|book):[\w:./-]{3,200}$/.test(key)) throw new HttpError(400, 'Bad key')
       if (req.method === 'GET') return await getBlob(res, user.id, key)
-      if (req.method === 'PUT') return await putBlob(req, res, user.id, key)
+      if (req.method === 'PUT') {
+        // Images for a book this family doesn't already have are dropped (see push()).
+        if (key.startsWith('book:')) {
+          const bookId = key.slice(5).split('/')[0]
+          const owned = await query('select 1 from app_book where id = $1 and user_id = $2', [bookId, user.id])
+          if (!owned.rowCount) {
+            await readBody(req, MAX_BLOB)
+            return json(res, 200, { ok: true, ignored: true })
+          }
+        }
+        return await putBlob(req, res, user.id, key)
+      }
     }
-    if (path === '/api/admin/overview' && req.method === 'GET') return json(res, 200, await adminOverview(user.id))
+    if (path.startsWith('/api/admin/')) {
+      await requireOwner(user.id)
+      if (path === '/api/admin/overview' && req.method === 'GET') return json(res, 200, await adminOverview())
+      if (path === '/api/admin/audit' && req.method === 'GET')
+        return json(
+          res,
+          200,
+          await listAudit({
+            before: Number(url.searchParams.get('before')) || undefined,
+            action: url.searchParams.get('action') ?? undefined,
+            limit: Number(url.searchParams.get('limit')) || 50,
+          }),
+        )
+    }
     throw new HttpError(404, 'Not found')
   } catch (err) {
     if (err instanceof HttpError) return json(res, err.status, { error: err.message })
@@ -116,14 +141,17 @@ async function requireUser(req: IncomingMessage): Promise<SessionUser> {
   return { id: session.user.id, email: session.user.email, name: session.user.name }
 }
 
-/** Creates the family row on first use. The very first family becomes the admin. */
+/** Creates the family row on first use. Everyone is a grown-up; the owner is made by npm run owner:create. */
 async function ensureFamily(userId: string) {
   await query(
-    `insert into app_family (user_id, role, created_at)
-     values ($1, case when exists (select 1 from app_family) then 'parent' else 'admin' end, $2)
-     on conflict (user_id) do nothing`,
+    `insert into app_family (user_id, role, created_at) values ($1, 'parent', $2) on conflict (user_id) do nothing`,
     [userId, Date.now()],
   )
+}
+
+async function requireOwner(userId: string) {
+  const { rows } = await query<{ role: string }>('select role from app_family where user_id = $1', [userId])
+  if (rows[0]?.role !== 'owner') throw new HttpError(403, 'Only the owner can open this')
 }
 
 async function me(user: SessionUser) {
@@ -134,10 +162,12 @@ async function me(user: SessionUser) {
   )
   const f = rows[0]
   const methods = await query<{ providerId: string }>('select "providerId" from account where "userId" = $1', [user.id])
+  const u = await query<{ username: string | null }>('select username from "user" where id = $1', [user.id])
   return {
     id: user.id,
     email: user.email,
     name: user.name,
+    username: u.rows[0]?.username ?? null,
     role: f.role,
     parentPinHash: f.parent_pin_hash,
     createdAt: Number(f.created_at),
@@ -196,11 +226,13 @@ async function push(userId: string, body: SyncPush) {
     )
     accepted++
   }
+  // Grown-ups can no longer add books (only the owner can, from the console), so a
+  // book the server doesn't already have is ignored rather than refused: refusing
+  // would leave it stuck in that device's outbox and hold up everything after it.
   for (const b of (body.books ?? []).slice(0, 20)) {
     await query(
-      `insert into app_book (id, user_id, meta, updated_at, deleted, server_at) values ($1,$2,$3,$4,$5,$6)
-       on conflict (id) do update set meta=excluded.meta, updated_at=excluded.updated_at, deleted=excluded.deleted, server_at=excluded.server_at
-       where app_book.user_id = excluded.user_id and excluded.updated_at >= app_book.updated_at`,
+      `update app_book set meta=$3, updated_at=$4, deleted=$5, server_at=$6
+       where id = $1 and user_id = $2 and $4 >= updated_at`,
       [str(b.id, 64), userId, JSON.stringify(b.meta ?? {}), num(b.updatedAt, now), b.deleted === true, now],
     )
     if (b.deleted === true) await query(`delete from app_blob where user_id = $1 and key like $2`, [userId, `book:${str(b.id, 64)}/%`])
@@ -284,14 +316,12 @@ async function putBlob(req: IncomingMessage, res: ServerResponse, userId: string
 
 // ── Admin ──────────────────────────────────────────────────────────────────
 
-async function adminOverview(userId: string) {
-  const { rows } = await query<{ role: string }>('select role from app_family where user_id = $1', [userId])
-  if (rows[0]?.role !== 'admin') throw new HttpError(403, 'Admins only')
+async function adminOverview() {
   const since = Date.now() - 60 * 24 * 60 * 60 * 1000
   const [families, profiles, events, finished] = await Promise.all([
     query(`select u.id, u.name, u.email, f.role, f.created_at,
              (select max(s."createdAt") from session s where s."userId" = u.id) as last_login
-           from "user" u join app_family f on f.user_id = u.id`),
+           from "user" u join app_family f on f.user_id = u.id where f.role <> 'owner'`),
     query('select id, user_id from app_profile where not deleted'),
     query(
       `select user_id, profile_id, type, book_id, page_id, at, (data->>'ms')::bigint as ms,

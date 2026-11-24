@@ -1,15 +1,13 @@
-import { ArrowLeft, BarChart3, ChevronRight, FileUp, KeyRound, Lock, LogOut, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, KeyRound, Lock, LogOut, Pencil, Plus } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { useNavigate } from 'react-router'
 import { Avatar } from '../components/Avatar'
 import { Dialog } from '../components/Dialog'
 import { PinPad } from '../components/PinPad'
 import { Button, ButtonLink } from '../components/ui'
-import type { Book } from '../content/books'
 import { changeParentPin, MAX_PROFILES, verifyParentPin } from '../data/accounts'
-import { deleteImportedBook } from '../data/imported-books'
 import { useProfiles } from '../state/hooks'
-import { useBooks, useLibrary } from '../state/library-store'
+import { useBooks } from '../state/library-store'
 import { useSession } from '../state/session-store'
 import { useSync } from '../sync/sync'
 import { ChildSummaryRow } from './InsightsScreens'
@@ -32,8 +30,6 @@ export function GrownUps() {
   const [currentPin, setCurrentPin] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
   const books = useBooks()
-  const reloadLibrary = useLibrary((s) => s.load)
-  const [removing, setRemoving] = useState<Book | null>(null)
 
   function done() {
     lockParent()
@@ -115,32 +111,13 @@ export function GrownUps() {
         ) : (
           <p className="mt-4 text-graphite">Add a profile to see each child’s coloring time, pages and stickers.</p>
         )}
-        {account.role === 'admin' ? (
-          <Link
-            to="/grown-ups/device"
-            className="mt-4 flex items-center gap-4 rounded-3xl bg-paper px-5 py-4 ring-2 ring-inset ring-mist hover:bg-frost/60"
-          >
-            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-frost text-ink">
-              <BarChart3 className="size-5" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block font-semibold text-ink-deep">All families</span>
-              <span className="block text-[0.9375rem] text-graphite">Totals across every family using Little Lines (admin only)</span>
-            </span>
-            <ChevronRight className="size-5 text-graphite" />
-          </Link>
-        ) : null}
       </section>
 
       <section className="mt-12" aria-labelledby="books-h">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <h2 id="books-h" className="font-display text-heading font-bold text-ink-deep">
-              Your family’s books
-            </h2>
-            <ButtonLink to="/grown-ups/import" variant="secondary">
-              <FileUp className="size-5" /> Add a book from a PDF
-            </ButtonLink>
-          </div>
+          <h2 id="books-h" className="font-display text-heading font-bold text-ink-deep">
+            Your family’s books
+          </h2>
+          <p className="mt-2 max-w-prose text-graphite">New books are added to every family’s library by the Little Lines team.</p>
           <ul className="mt-4 divide-y-2 divide-frost overflow-hidden rounded-3xl bg-paper ring-2 ring-inset ring-mist">
             {books.map((b) => (
               <li key={b.id} className="flex items-center gap-4 px-5 py-3">
@@ -152,11 +129,6 @@ export function GrownUps() {
                     {b.origin === 'bundled' ? 'comes with the app' : 'added from a PDF'}
                   </p>
                 </div>
-                {b.origin === 'imported' ? (
-                  <Button variant="danger" onClick={() => setRemoving(b)} aria-label={`Remove ${b.title}`}>
-                    <Trash2 className="size-4" /> <span className="hidden sm:inline">Remove</span>
-                  </Button>
-                ) : null}
               </li>
             ))}
           </ul>
@@ -190,32 +162,6 @@ export function GrownUps() {
         </div>
       </section>
 
-      {removing ? (
-        <Dialog label="Remove book" onClose={() => setRemoving(null)}>
-          <h2 className="font-display text-heading font-bold text-ink-deep">Remove {removing.title}?</h2>
-          <p className="mt-2 text-graphite">
-            It leaves your family’s library on every device, and any coloring of its pages is deleted too. This
-            can’t be undone.
-          </p>
-          <div className="mt-6 flex flex-col gap-3">
-            <Button
-              variant="danger"
-              onClick={async () => {
-                const title = removing.title
-                await deleteImportedBook(removing.id)
-                await reloadLibrary()
-                setRemoving(null)
-                setNotice(`${title} was removed.`)
-              }}
-            >
-              <Trash2 className="size-5" /> Remove book
-            </Button>
-            <Button variant="ghost" onClick={() => setRemoving(null)}>
-              Keep it
-            </Button>
-          </div>
-        </Dialog>
-      ) : null}
 
       {pinStep ? (
         <Dialog label="Change parent PIN" onClose={() => setPinStep(null)}>

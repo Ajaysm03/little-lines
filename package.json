@@ -15,7 +15,8 @@
     "preview:https": "HTTPS=1 vite preview --host",
     "db:local": "pglite-server --db=.pglite --port=5433 --max-connections=1",
     "db:migrate": "tsx --env-file=.env server/cli/migrate.ts",
-    "db:seed": "tsx --env-file=.env server/cli/seed.ts"
+    "db:seed": "tsx --env-file=.env server/cli/seed.ts",
+    "owner:create": "tsx --env-file=.env server/cli/owner.ts"
   },
   "dependencies": {
     "@fontsource-variable/atkinson-hyperlegible-next": "^5.3.0",

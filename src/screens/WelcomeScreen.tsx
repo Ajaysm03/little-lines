@@ -26,7 +26,7 @@ export function WelcomeScreen() {
     e.preventDefault()
     setError(null)
     if (!email.trim() || !password) {
-      setError('Enter your email and password.')
+      setError('Enter your email (or username) and password.')
       return
     }
     setBusy('email')
@@ -64,7 +64,17 @@ export function WelcomeScreen() {
       ) : null}
 
       <form onSubmit={onSubmit} className={options?.google ? 'flex flex-col gap-5' : 'mt-8 flex flex-col gap-5'} noValidate>
-        <TextField label="Email" type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <TextField
+          label="Email or username"
+          type="text"
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          inputMode="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
         <div className="flex flex-col gap-2">
           <TextField
             label="Password"
@@ -73,7 +83,7 @@ export function WelcomeScreen() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <Link to="/forgot-password" state={{ email }} className={`self-end text-[0.9375rem] ${linkClass}`}>
+          <Link to="/forgot-password" state={{ email: email.includes('@') ? email.trim() : '' }} className={`self-end text-[0.9375rem] ${linkClass}`}>
             Forgot password?
           </Link>
         </div>

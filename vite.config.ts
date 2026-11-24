@@ -61,9 +61,9 @@ function apiDevServer(): Plugin {
         workbox: {
           // The app, its fonts and every bundled book page, so coloring works with no internet.
           globPatterns: ['**/*.{js,mjs,css,html,svg,png,webp,woff2,mp3}'],
-          // PDF import (grown-ups only, needs a file anyway) and rarely used font subsets
+          // PDF import and the owner console (owner only, online anyway) and rarely used font subsets
           // still load online; leaving them out keeps the offline cache small on tablets.
-          globIgnores: ['**/pdf*.{js,mjs}', '**/ImportScreen-*.js', '**/*-cyrillic*.woff2', '**/*-vietnamese*.woff2', '**/*-greek*.woff2'],
+          globIgnores: ['**/pdf*.{js,mjs}', '**/ImportScreen-*.js', '**/{AdminLayout,OverviewScreen,AuditScreen,ComingSoon}-*.js', '**/*-cyrillic*.woff2', '**/*-vietnamese*.woff2', '**/*-greek*.woff2'],
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
           navigateFallback: '/index.html',
           // Sign-in redirects (Google, password reset links) must reach the server, not the cached app.
