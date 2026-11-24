@@ -64,9 +64,4 @@ export function buildFillPatch(map: RegionData, label: number, rgb: [number, num
   return { x: x0, y: y0, width: w, height: h, data }
 }
 
-export function hexToRgb(hex: string): [number, number, number] {
-  const h = hex.replace('#', '')
-  const full = h.length === 3 ? h.replace(/./g, (c) => c + c) : h
-  const n = parseInt(full, 16)
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
-}
+export { hexToRgb } from './colors'

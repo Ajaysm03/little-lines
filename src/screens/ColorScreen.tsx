@@ -1,17 +1,35 @@
-import { ArrowLeft, Check, CloudOff, Hand, Maximize, Minus, PenLine, Plus, Redo2, Trash2, Undo2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  Check,
+  CloudOff,
+  Ellipsis,
+  Fence,
+  Hand,
+  Maximize,
+  Minus,
+  PenLine,
+  Plus,
+  Redo2,
+  Star,
+  Trash2,
+  Undo2,
+} from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { ColoringEngine, type StrokeStyle } from '../coloring/engine'
 import { StageInput } from '../coloring/input'
 import { loadRegions } from '../coloring/load-regions'
-import { TOOLS, toolWidth, type DrawTool, type ToolId } from '../coloring/tools'
+import { DRAW_TOOLS, isDrawTool, TOOLS, toolWidth, type DrawTool, type FillMode, type ToolId } from '../coloring/tools'
 import { clampView, cssTransform, FIT, fitLayout, zoomAt, type Layout, type View } from '../coloring/viewport'
-import { OpacitySlider, Palette, SizePicker, ToolPicker } from '../components/coloring-ui'
+import { Celebration } from '../components/Celebration'
+import { FillModePicker, OpacitySlider, Palette, SizePicker, Suggestions, ToolPicker } from '../components/coloring-ui'
 import { Dialog } from '../components/Dialog'
-import { Button, Spinner, cn } from '../components/ui'
+import { Spinner, cn } from '../components/ui'
 import { getBook, type Book, type BookPage } from '../content/books'
 import { getArtwork, saveArtwork } from '../data/artworks'
 import { logEvent } from '../data/events'
+import type { Artwork } from '../data/types'
+import { playCelebration } from '../lib/sounds'
 import { usePrefs } from '../state/prefs-store'
 import { useSession } from '../state/session-store'
 import { NotFound } from './NotFound'
@@ -19,6 +37,8 @@ import { NotFound } from './NotFound'
 const SAVE_DELAY_MS = 1200
 /** Gaps longer than this between strokes don't count as time spent coloring. */
 const IDLE_GAP_MS = 15_000
+/** Below this much color, "I'm finished" asks for a little more first. */
+const MIN_TO_FINISH = 0.03
 
 export function ColorScreen() {
   const { bookId, pageId } = useParams()
@@ -31,6 +51,10 @@ export function ColorScreen() {
 
 type SaveState = 'idle' | 'pending' | 'saving' | 'saved' | 'error'
 
+function initial<T>(pick: (t: DrawTool) => T): Record<DrawTool, T> {
+  return Object.fromEntries(DRAW_TOOLS.map((t) => [t, pick(t)])) as Record<DrawTool, T>
+}
+
 function Editor({ book, page, index }: { book: Book; page: BookPage; index: number }) {
   const navigate = useNavigate()
   const accountId = useSession((s) => s.account?.id) ?? ''
@@ -39,8 +63,13 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
   const setPenOnly = usePrefs((s) => s.setPenOnly)
   const recent = usePrefs((s) => s.recentColors[profileId]) ?? []
   const addRecentColor = usePrefs((s) => s.addRecentColor)
+  const stayInLines = usePrefs((s) => s.stayInLines[profileId] ?? true)
+  const setStayInLines = usePrefs((s) => s.setStayInLines)
+  const leftHanded = usePrefs((s) => s.leftHanded[profileId] ?? false)
+  const setLeftHanded = usePrefs((s) => s.setLeftHanded)
   const W = book.pageSize.width
   const H = book.pageSize.height
+  const nextPage = book.pages.slice(index + 1).find((p) => p.kind === 'line-art')
 
   const stageRef = useRef<HTMLDivElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -50,30 +79,37 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
 
   const [ready, setReady] = useState(false)
   const [loadError, setLoadError] = useState(false)
-  const [tool, setTool] = useState<ToolId>('brush')
+  const [tool, setTool] = useState<ToolId>('crayon')
   const [color, setColor] = useState(book.theme.palette[0])
-  const [sizes, setSizes] = useState<Record<DrawTool, number>>({
-    pencil: TOOLS.pencil.defaultSize,
-    brush: TOOLS.brush.defaultSize,
-    eraser: TOOLS.eraser.defaultSize,
-  })
-  const [opacity, setOpacity] = useState(1)
+  const [sizes, setSizes] = useState(() => initial((t) => TOOLS[t].defaultSize))
+  const [opacities, setOpacities] = useState(() => initial((t) => TOOLS[t].opacity))
+  const [fillMode, setFillMode] = useState<FillMode>('solid')
   const [hist, setHist] = useState({ canUndo: false, canRedo: false })
   const [saveState, setSaveState] = useState<SaveState>('idle')
+  const [finished, setFinished] = useState(false)
   const [zoomed, setZoomed] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [celebration, setCelebration] = useState<{ colorUrl: string | null } | null>(null)
   const [toast, setToast] = useState<string | null>(null)
-  const [leaving, setLeaving] = useState(false)
+  const [busy, setBusy] = useState(false)
 
   // Input handlers read the latest choices through refs so listeners attach once.
-  const live = useRef({ tool, color, sizes, opacity, ready })
-  live.current = { tool, color, sizes, opacity, ready }
+  const live = useRef({ tool, color, sizes, opacities, fillMode, stayInLines, ready })
+  live.current = { tool, color, sizes, opacities, fillMode, stayInLines, ready }
+  const lastDrawTool = useRef<ToolId>('crayon')
   const viewRef = useRef<View>(FIT)
   const layoutRef = useRef<Layout | null>(null)
   const spaceRef = useRef(false)
   const activity = useRef({ last: 0, ms: 0 })
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const saving = useRef<Promise<void> | null>(null)
+  const saving = useRef<Promise<Artwork | null> | null>(null)
+  const finishedRef = useRef(false)
+
+  const chooseTool = useCallback((t: ToolId) => {
+    if (t !== 'picker') lastDrawTool.current = t
+    setTool(t)
+  }, [])
 
   // ── View (zoom / pan) ────────────────────────────────────────────────────
   const applyView = useCallback((v: View) => {
@@ -109,39 +145,49 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
   }, [W, H, applyView])
 
   // ── Saving ───────────────────────────────────────────────────────────────
-  const save = useCallback(async (): Promise<void> => {
-    clearTimeout(saveTimer.current)
-    if (saving.current) await saving.current
-    const engine = engineRef.current
-    if (!engine || !engine.dirty || !profileId) return
-    engine.dirty = false
-    setSaveState('saving')
-    const run = (async () => {
-      try {
-        const [colorLayer, thumb] = await Promise.all([engine.exportLayer(), engine.exportThumb()])
-        const progress = engine.progress()
-        await saveArtwork({ profileId, bookId: book.id, pageId: page.id, colorLayer, thumb, progress })
-        const stats = engine.takeStats()
-        const ms = Math.round(activity.current.ms)
-        activity.current.ms = 0
-        void logEvent({
-          accountId,
-          profileId,
-          type: 'coloring',
-          bookId: book.id,
-          pageId: page.id,
-          data: { ms, strokes: stats.strokes, fills: stats.fills, erases: stats.erases, colors: [...stats.colors], progress },
-        })
-        setSaveState(engine.dirty ? 'pending' : 'saved')
-      } catch {
-        engine.dirty = true
-        setSaveState('error')
-      }
-    })()
-    saving.current = run
-    await run
-    saving.current = null
-  }, [accountId, profileId, book.id, page.id])
+  const save = useCallback(
+    async (opts: { finish?: boolean; force?: boolean } = {}): Promise<Artwork | null> => {
+      clearTimeout(saveTimer.current)
+      if (saving.current) await saving.current
+      const engine = engineRef.current
+      if (!engine || !profileId || (!engine.dirty && !opts.force)) return null
+      engine.dirty = false
+      setSaveState('saving')
+      const run = (async (): Promise<Artwork | null> => {
+        try {
+          const [colorLayer, thumb] = await Promise.all([engine.exportLayer(), engine.exportThumb()])
+          const progress = engine.progress()
+          const art = await saveArtwork({ profileId, bookId: book.id, pageId: page.id, colorLayer, thumb, progress, finish: opts.finish })
+          const stats = engine.takeStats()
+          const ms = Math.round(activity.current.ms)
+          activity.current.ms = 0
+          void logEvent({
+            accountId,
+            profileId,
+            type: 'coloring',
+            bookId: book.id,
+            pageId: page.id,
+            data: { ms, strokes: stats.strokes, fills: stats.fills, erases: stats.erases, colors: [...stats.colors], progress },
+          })
+          const isDone = Boolean(art.completedAt)
+          if (isDone && !finishedRef.current && !opts.finish) setToast('This page is finished! Keep adding color as long as you like.')
+          finishedRef.current = isDone
+          setFinished(isDone)
+          setSaveState(engine.dirty ? 'pending' : 'saved')
+          return art
+        } catch {
+          engine.dirty = true
+          setSaveState('error')
+          return null
+        }
+      })()
+      saving.current = run
+      const result = await run
+      saving.current = null
+      return result
+    },
+    [accountId, profileId, book.id, page.id],
+  )
 
   const scheduleSave = useCallback(() => {
     clearTimeout(saveTimer.current)
@@ -168,6 +214,8 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
         engine.setRegions(regions)
         if (artwork?.colorLayer) await engine.load(artwork.colorLayer)
         if (cancelled) return
+        finishedRef.current = Boolean(artwork?.completedAt)
+        setFinished(finishedRef.current)
         setReady(true)
         if (accountId && profileId)
           void logEvent({ accountId, profileId, type: 'color_open', bookId: book.id, pageId: page.id, data: { pageIndex: index } })
@@ -194,15 +242,16 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
       if (a.last && now - a.last < IDLE_GAP_MS) a.ms += now - a.last
       a.last = now
     }
-    const style = (): StrokeStyle => {
-      const { tool: t, color: c, sizes: s, opacity: o } = live.current
-      const drawTool = (t === 'fill' ? 'brush' : t) as DrawTool
+    const style = (): StrokeStyle | null => {
+      const { tool: t, color: c, sizes: s, opacities: o, stayInLines: stay } = live.current
+      if (!isDrawTool(t)) return null
       return {
-        tool: drawTool,
+        tool: t,
         color: c,
-        width: toolWidth(drawTool, s[drawTool], W),
-        opacity: drawTool === 'eraser' ? 1 : o,
-        pressure: TOOLS[drawTool].pressure,
+        width: toolWidth(t, s[t], W),
+        opacity: o[t],
+        pressure: TOOLS[t].pressure,
+        stayInLines: stay,
       }
     }
     const input = new StageInput(stage, {
@@ -225,8 +274,10 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
         setToast('Apple Pencil found. Now only the pencil draws, and fingers move and zoom the page.')
       },
       onStrokeStart: (pt) => {
+        const s = style()
+        if (!s) return
         noteActivity()
-        engineRef.current?.beginStroke(style(), pt)
+        engineRef.current?.beginStroke(s, pt)
       },
       onStrokeMove: (pts) => engineRef.current?.extendStroke(pts),
       onStrokeEnd: () => {
@@ -235,9 +286,17 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
         if (engineRef.current?.endStroke() && t !== 'eraser') addRecentColor(profileId, live.current.color)
       },
       onStrokeCancel: () => engineRef.current?.cancelStroke(),
-      onFill: (pt) => {
+      onTap: (pt) => {
+        const engine = engineRef.current
+        if (!engine) return
+        if (live.current.tool === 'picker') {
+          setColor(engine.pick(pt.x, pt.y))
+          setTool(lastDrawTool.current) // back to what they were coloring with
+          return
+        }
         noteActivity()
-        if (engineRef.current?.fill(pt.x, pt.y, live.current.color)) addRecentColor(profileId, live.current.color)
+        const { color: c, fillMode: mode } = live.current
+        if (engine.fill(pt.x, pt.y, c, mode) && mode !== 'rainbow') addRecentColor(profileId, c)
       },
       onUndo: () => engineRef.current?.undo(),
       onRedo: () => engineRef.current?.redo(),
@@ -266,11 +325,11 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
       else if (!mod && k === '-') zoomBy(0.8)
       else if (!mod && (k === '[' || k === ']')) {
         const t = live.current.tool
-        if (t === 'fill') return
+        if (!isDrawTool(t)) return
         setSizes((s) => ({ ...s, [t]: Math.max(0, Math.min(TOOLS[t].sizes.length - 1, s[t] + (k === ']' ? 1 : -1))) }))
       } else if (!mod) {
         const match = (Object.keys(TOOLS) as ToolId[]).find((id) => TOOLS[id].shortcut === k)
-        if (match) setTool(match)
+        if (match) chooseTool(match)
       }
     }
     const up = (e: KeyboardEvent) => {
@@ -282,7 +341,7 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
       window.removeEventListener('keydown', down)
       window.removeEventListener('keyup', up)
     }
-  }, [applyView, zoomBy])
+  }, [applyView, zoomBy, chooseTool])
 
   useEffect(() => {
     if (!toast) return
@@ -290,33 +349,64 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
     return () => clearTimeout(t)
   }, [toast])
 
-  async function leave() {
-    setLeaving(true)
+  useEffect(() => {
+    if (!celebration?.colorUrl) return
+    const url = celebration.colorUrl
+    return () => URL.revokeObjectURL(url)
+  }, [celebration])
+
+  // ── Leaving and finishing ────────────────────────────────────────────────
+  async function goTo(path: string) {
+    setBusy(true)
     await save()
-    navigate(`/books/${book.id}/read?page=${index}`)
+    navigate(path)
+  }
+  const toBook = () => goTo(`/books/${book.id}/read?page=${index}`)
+
+  async function finish() {
+    const engine = engineRef.current
+    if (!engine || !ready) return
+    if (engine.progress() < MIN_TO_FINISH) {
+      setToast('Add some color first, then tap I’m finished.')
+      return
+    }
+    setBusy(true)
+    const art = await save({ finish: true, force: true })
+    setBusy(false)
+    if (!art) return
+    playCelebration()
+    setCelebration({ colorUrl: art.thumb ? URL.createObjectURL(art.thumb) : null })
   }
 
-  const drawTool: DrawTool | null = tool === 'fill' ? null : tool
-  const sizeControl = drawTool ? (
-    <SizePicker
-      sizes={TOOLS[drawTool].sizes}
-      value={sizes[drawTool]}
-      onChange={(i) => setSizes((s) => ({ ...s, [drawTool]: i }))}
-      direction="column"
-      color={drawTool === 'eraser' ? 'var(--color-graphite)' : color}
-    />
+  // ── Layout pieces ────────────────────────────────────────────────────────
+  const drawTool: DrawTool | null = isDrawTool(tool) ? tool : null
+  const toolOptions = (direction: 'row' | 'column') =>
+    drawTool ? (
+      <SizePicker
+        sizes={TOOLS[drawTool].sizes}
+        value={sizes[drawTool]}
+        onChange={(i) => setSizes((s) => ({ ...s, [drawTool]: i }))}
+        direction={direction}
+        color={drawTool === 'eraser' ? 'var(--color-graphite)' : color}
+      />
+    ) : tool === 'fill' ? (
+      <FillModePicker value={fillMode} onChange={setFillMode} color={color} direction={direction} />
+    ) : (
+      <p className="max-w-16 text-center text-[0.75rem] text-graphite">Tap the page to pick up a color</p>
+    )
+  const showsStrength = drawTool !== null && drawTool !== 'eraser' && drawTool !== 'glitter'
+  const opacityControl = showsStrength ? (
+    <OpacitySlider value={opacities[drawTool]} onChange={(v) => setOpacities((o) => ({ ...o, [drawTool]: v }))} color={color} />
   ) : null
-  const opacityControl =
-    tool === 'pencil' || tool === 'brush' ? <OpacitySlider value={opacity} onChange={setOpacity} color={color} /> : null
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-frost select-none">
       {/* Top bar */}
-      <header className="flex shrink-0 items-center gap-1.5 border-b-2 border-mist/70 bg-paper px-2 py-2 sm:gap-2 sm:px-3">
+      <header className="relative z-20 flex shrink-0 items-center gap-1 border-b-2 border-mist/70 bg-paper px-2 py-2 sm:gap-1.5 sm:px-3">
         <button
           type="button"
-          onClick={leave}
-          disabled={leaving}
+          onClick={toBook}
+          disabled={busy}
           className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 font-semibold text-ink hover:bg-frost"
         >
           <ArrowLeft className="size-5" /> <span className="hidden sm:inline">Book</span>
@@ -331,47 +421,94 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
         <IconButton label="Redo" onClick={() => engineRef.current?.redo()} disabled={!hist.canRedo}>
           <Redo2 className="size-6" />
         </IconButton>
+        <Toggle
+          on={stayInLines}
+          onChange={(v) => setStayInLines(profileId, v)}
+          icon={<Fence className="size-5" />}
+          label="Stay in lines"
+          title={stayInLines ? 'Color stays inside the shape you start in.' : 'Color can go over the lines.'}
+        />
+        <Toggle
+          on={penOnly}
+          onChange={setPenOnly}
+          icon={penOnly ? <PenLine className="size-5" /> : <Hand className="size-5" />}
+          label={penOnly ? 'Pencil only' : 'Finger draws'}
+          title={penOnly ? 'Only the pencil draws. Fingers move the page.' : 'Fingers and pencil both draw.'}
+        />
+        <div className="relative">
+          <IconButton label="More" onClick={() => setMenuOpen((o) => !o)}>
+            <Ellipsis className="size-6" />
+          </IconButton>
+          {menuOpen ? (
+            <Menu onClose={() => setMenuOpen(false)}>
+              <label className="flex min-h-12 cursor-pointer items-center justify-between gap-4 rounded-xl px-3 hover:bg-frost">
+                <span>
+                  <span className="block font-semibold text-ink-deep">Left-handed</span>
+                  <span className="block text-[0.8125rem] text-graphite">Tools on the right, colors on the left</span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={leftHanded}
+                  onChange={(e) => setLeftHanded(profileId, e.target.checked)}
+                  className="size-5 accent-[var(--color-ink)]"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false)
+                  setConfirmClear(true)
+                }}
+                disabled={!ready}
+                className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left font-semibold text-error hover:bg-error/8"
+              >
+                <Trash2 className="size-5" /> Clear page
+              </button>
+            </Menu>
+          ) : null}
+        </div>
         <button
           type="button"
-          onClick={() => setPenOnly(!penOnly)}
-          aria-pressed={penOnly}
-          title={penOnly ? 'Only the pencil draws. Fingers move the page.' : 'Fingers and pencil both draw.'}
+          onClick={finish}
+          disabled={!ready || busy}
           className={cn(
-            'inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-[0.875rem] font-semibold transition-colors',
-            penOnly ? 'bg-ink text-white' : 'text-graphite hover:bg-frost',
+            'ml-1 inline-flex min-h-12 items-center gap-2 rounded-full px-4 font-semibold shadow-lift transition-transform active:scale-95 disabled:opacity-60 sm:px-5',
+            finished ? 'bg-meadow text-white' : 'bg-sunflower text-ink-deep',
           )}
         >
-          {penOnly ? <PenLine className="size-5" /> : <Hand className="size-5" />}
-          <span className="hidden md:inline">{penOnly ? 'Pencil only' : 'Finger draws'}</span>
+          {busy ? <Spinner /> : finished ? <Check className="size-5" strokeWidth={3} /> : <Star className="size-5 fill-current" />}
+          <span className="hidden sm:inline">{finished ? 'Finished' : 'I’m finished'}</span>
         </button>
-        <IconButton label="Clear page" onClick={() => setConfirmClear(true)} disabled={!ready} className="hidden sm:grid">
-          <Trash2 className="size-5" />
-        </IconButton>
-        <Button onClick={leave} busy={leaving} className="ml-1 px-4 sm:px-5" aria-label="Done">
-          <Check className="size-5" /> <span className="hidden sm:inline">Done</span>
-        </Button>
       </header>
 
-      <div className="flex min-h-0 flex-1">
+      <div className={cn('flex min-h-0 flex-1', leftHanded && 'flex-row-reverse')}>
         {/* Tools (tablet and up) */}
-        <aside className="hidden shrink-0 flex-col items-center gap-3 overflow-y-auto border-r-2 border-mist/70 bg-paper px-2 py-3 md:flex">
-          <ToolPicker tool={tool} color={color} onChange={setTool} direction="column" />
-          {sizeControl ? <span aria-hidden className="h-0.5 w-10 rounded bg-mist" /> : null}
-          {sizeControl}
+        <aside
+          className={cn(
+            'hidden shrink-0 flex-col items-center gap-2 overflow-y-auto border-mist/70 bg-paper px-2 py-2 md:flex',
+            leftHanded ? 'border-l-2' : 'border-r-2',
+          )}
+        >
+          <ToolPicker tool={tool} color={color} onChange={chooseTool} direction="column" />
+          <span aria-hidden className="h-0.5 w-10 shrink-0 rounded bg-mist" />
+          {toolOptions('column')}
         </aside>
 
         {/* The page */}
         <div
           ref={stageRef}
           className="relative min-w-0 flex-1 touch-none overflow-hidden [-webkit-touch-callout:none]"
-          style={{ cursor: tool === 'fill' ? 'cell' : 'crosshair' }}
+          style={{ cursor: tool === 'fill' ? 'cell' : tool === 'picker' ? 'copy' : 'crosshair' }}
         >
           <div ref={sheetRef} className="absolute top-0 left-0 origin-top-left bg-[#fffefb] shadow-paper will-change-transform">
             <canvas ref={colorRef} width={W} height={H} className="absolute inset-0 size-full" />
             <canvas ref={strokeRef} width={W} height={H} className="absolute inset-0 size-full" />
             <img src={page.image} alt={page.title} draggable={false} className="pointer-events-none absolute inset-0 size-full" />
           </div>
-          <div data-stage-ui className="absolute right-3 bottom-3 flex flex-col gap-1 rounded-full bg-paper/95 p-1 shadow-lift">
+          <div
+            data-stage-ui
+            className={cn('absolute bottom-3 flex flex-col gap-1 rounded-full bg-paper/95 p-1 shadow-lift', leftHanded ? 'left-3' : 'right-3')}
+          >
             <IconButton label="Zoom in" onClick={() => zoomBy(1.4)}>
               <Plus className="size-5" />
             </IconButton>
@@ -385,9 +522,7 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
           {!ready ? (
             <div className="absolute inset-0 grid place-items-center bg-frost/60" role="status">
               {loadError ? (
-                <p className="rounded-2xl bg-paper px-5 py-4 text-ink-deep shadow-paper">
-                  This page didn’t load. Go back and open it again.
-                </p>
+                <p className="rounded-2xl bg-paper px-5 py-4 text-ink-deep shadow-paper">This page didn’t load. Go back and open it again.</p>
               ) : (
                 <span className="flex items-center gap-3 rounded-full bg-paper px-5 py-3 text-graphite shadow-lift">
                   <Spinner className="size-5" /> Getting your page ready…
@@ -403,8 +538,14 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
         </div>
 
         {/* Colors (large screens) */}
-        <aside className="hidden w-60 shrink-0 overflow-y-auto border-l-2 border-mist/70 bg-paper p-4 lg:block">
+        <aside
+          className={cn(
+            'hidden w-64 shrink-0 overflow-y-auto border-mist/70 bg-paper p-4 lg:block',
+            leftHanded ? 'border-r-2' : 'border-l-2',
+          )}
+        >
           <Palette colors={book.theme.palette} recent={recent} value={color} onChange={setColor} layout="grid">
+            <Suggestions color={color} onPick={setColor} layout="grid" />
             {opacityControl}
           </Palette>
         </aside>
@@ -413,21 +554,16 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
       {/* Colors (below large) */}
       <div className="shrink-0 border-t-2 border-mist/70 bg-paper lg:hidden">
         <Palette colors={book.theme.palette} recent={recent} value={color} onChange={setColor} layout="row">
-          {opacityControl}
+          <Suggestions color={color} onPick={setColor} layout="row" />
+          {opacityControl ? <div className="w-56">{opacityControl}</div> : null}
         </Palette>
       </div>
       {/* Tools (phones) */}
-      <div className="flex shrink-0 items-center justify-between gap-2 overflow-x-auto bg-paper px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden">
-        <ToolPicker tool={tool} color={color} onChange={setTool} direction="row" />
-        {drawTool ? (
-          <SizePicker
-            sizes={TOOLS[drawTool].sizes}
-            value={sizes[drawTool]}
-            onChange={(i) => setSizes((s) => ({ ...s, [drawTool]: i }))}
-            direction="row"
-            color={drawTool === 'eraser' ? 'var(--color-graphite)' : color}
-          />
-        ) : null}
+      <div className="flex shrink-0 flex-col gap-1 bg-paper px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden">
+        <div className="overflow-x-auto">
+          <ToolPicker tool={tool} color={color} onChange={chooseTool} direction="row" />
+        </div>
+        <div className="flex justify-center overflow-x-auto">{toolOptions('row')}</div>
       </div>
 
       {confirmClear ? (
@@ -435,20 +571,33 @@ function Editor({ book, page, index }: { book: Book; page: BookPage; index: numb
           <h2 className="font-display text-heading font-bold text-ink-deep">Start this page over?</h2>
           <p className="mt-2 text-graphite">All the color on this page is removed. You can tap Undo to bring it back.</p>
           <div className="mt-6 flex flex-col gap-3">
-            <Button
-              variant="danger"
+            <button
+              type="button"
               onClick={() => {
                 engineRef.current?.clear()
                 setConfirmClear(false)
               }}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-paper font-semibold text-error ring-2 ring-inset ring-error/30 hover:bg-error hover:text-white"
             >
               <Trash2 className="size-5" /> Clear page
-            </Button>
-            <Button variant="ghost" onClick={() => setConfirmClear(false)}>
+            </button>
+            <button type="button" onClick={() => setConfirmClear(false)} className="min-h-12 rounded-full font-semibold text-ink hover:bg-frost">
               Keep coloring
-            </Button>
+            </button>
           </div>
         </Dialog>
+      ) : null}
+
+      {celebration ? (
+        <Celebration
+          pageTitle={page.title}
+          colorUrl={celebration.colorUrl}
+          lineArt={page.image}
+          nextTitle={nextPage?.title}
+          onNext={nextPage ? () => navigate(`/color/${book.id}/${nextPage.id}`, { replace: true }) : undefined}
+          onBook={() => navigate(`/books/${book.id}/read?page=${index}`)}
+          onKeep={() => setCelebration(null)}
+        />
       ) : null}
     </div>
   )
@@ -481,6 +630,61 @@ function IconButton({
     >
       {children}
     </button>
+  )
+}
+
+function Toggle({
+  on,
+  onChange,
+  icon,
+  label,
+  title,
+}: {
+  on: boolean
+  onChange: (v: boolean) => void
+  icon: ReactNode
+  label: string
+  title: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!on)}
+      aria-pressed={on}
+      aria-label={label}
+      title={title}
+      className={cn(
+        'inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-[0.875rem] font-semibold transition-colors',
+        on ? 'bg-ink text-white' : 'text-graphite hover:bg-frost',
+      )}
+    >
+      {icon}
+      <span className="hidden xl:inline">{label}</span>
+    </button>
+  )
+}
+
+/** A small dropdown that closes on outside tap or Escape. */
+function Menu({ onClose, children }: { onClose: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    // Defer so the tap that opened the menu doesn't close it.
+    const t = setTimeout(() => window.addEventListener('pointerdown', onDown), 0)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      clearTimeout(t)
+      window.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [onClose])
+  return (
+    <div ref={ref} role="menu" className="absolute top-full right-0 z-30 mt-2 w-72 rounded-2xl bg-paper p-2 shadow-paper ring-1 ring-mist">
+      {children}
+    </div>
   )
 }
 

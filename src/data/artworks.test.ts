@@ -25,6 +25,17 @@ describe('saveArtwork', () => {
     expect(erased.completedAt).toBeNull()
   })
 
+  it('keeps a page the child finished, even below the threshold, until it is cleared', async () => {
+    const mine = await saveArtwork({ ...base, colorLayer: blob(), thumb: blob(), progress: 0.3, finish: true })
+    expect(mine.completedAt).not.toBeNull()
+    expect(mine.finishedByChild).toBe(true)
+    const later = await saveArtwork({ ...base, colorLayer: blob(), thumb: blob(), progress: 0.25 })
+    expect(later.completedAt).toBe(mine.completedAt)
+    const cleared = await saveArtwork({ ...base, colorLayer: blob(), thumb: blob(), progress: 0 })
+    expect(cleared.completedAt).toBeNull()
+    expect(cleared.finishedByChild).toBe(false)
+  })
+
   it('clamps progress into 0–1', async () => {
     const art = await saveArtwork({ ...base, colorLayer: blob(), thumb: blob(), progress: 1.7 })
     expect(art.progress).toBe(1)

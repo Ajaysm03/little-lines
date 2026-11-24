@@ -42,6 +42,8 @@ export interface Artwork {
   /** 0–1 share of the page's colorable area that has color. */
   progress: number
   completedAt: number | null
+  /** The child said "I'm finished", so erasing a little doesn't un-finish the page. */
+  finishedByChild?: boolean
   updatedAt: number
 }
 

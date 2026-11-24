@@ -93,3 +93,37 @@ export function playPageFlip(): void {
   thump.start(t + dur - 0.05)
   thump.stop(t + dur + 0.12)
 }
+
+/** A short, bright "ta-da": four rising bell notes with a shimmer on top. */
+export function playCelebration(): void {
+  const ac = audio()
+  if (!ac) return
+  const t = ac.currentTime
+  const notes = [523.25, 659.25, 783.99, 1046.5] // C5 E5 G5 C6
+  notes.forEach((f, i) => {
+    const start = t + i * 0.11
+    const osc = ac.createOscillator()
+    osc.type = 'triangle'
+    osc.frequency.value = f
+    const env = ac.createGain()
+    env.gain.setValueAtTime(0.0001, start)
+    env.gain.exponentialRampToValueAtTime(0.22, start + 0.02)
+    env.gain.exponentialRampToValueAtTime(0.0001, start + (i === notes.length - 1 ? 0.9 : 0.35))
+    osc.connect(env).connect(ac.destination)
+    osc.start(start)
+    osc.stop(start + 1)
+  })
+  // Shimmer: quick high sine sparkles.
+  for (let i = 0; i < 6; i++) {
+    const start = t + 0.4 + i * 0.06
+    const osc = ac.createOscillator()
+    osc.frequency.value = 2000 + Math.random() * 1600
+    const env = ac.createGain()
+    env.gain.setValueAtTime(0.0001, start)
+    env.gain.exponentialRampToValueAtTime(0.05, start + 0.01)
+    env.gain.exponentialRampToValueAtTime(0.0001, start + 0.18)
+    osc.connect(env).connect(ac.destination)
+    osc.start(start)
+    osc.stop(start + 0.2)
+  }
+}

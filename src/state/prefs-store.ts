@@ -34,10 +34,16 @@ interface PrefsState {
   penSeen: boolean
   /** Last colors each child picked, newest first. */
   recentColors: Record<string, string[]>
+  /** Per child: strokes stay inside the area they start in (on unless turned off). */
+  stayInLines: Record<string, boolean>
+  /** Per child: tools on the right, colors on the left. */
+  leftHanded: Record<string, boolean>
   setSound(on: boolean): void
   setPenOnly(on: boolean): void
   markPenSeen(): void
   addRecentColor(profileId: string, color: string): void
+  setStayInLines(profileId: string, on: boolean): void
+  setLeftHanded(profileId: string, on: boolean): void
 }
 
 /** Device-wide preferences. */
@@ -48,6 +54,8 @@ export const usePrefs = create<PrefsState>()(
       penOnly: false,
       penSeen: false,
       recentColors: {},
+      stayInLines: {},
+      leftHanded: {},
       setSound: (sound) => set({ sound }),
       setPenOnly: (penOnly) => set({ penOnly }),
       markPenSeen: () => set({ penSeen: true }),
@@ -57,6 +65,8 @@ export const usePrefs = create<PrefsState>()(
           const list = [c, ...(s.recentColors[profileId] ?? []).filter((x) => x !== c)].slice(0, 8)
           return { recentColors: { ...s.recentColors, [profileId]: list } }
         }),
+      setStayInLines: (profileId, on) => set((s) => ({ stayInLines: { ...s.stayInLines, [profileId]: on } })),
+      setLeftHanded: (profileId, on) => set((s) => ({ leftHanded: { ...s.leftHanded, [profileId]: on } })),
     }),
     { name: 'little-lines:prefs', storage: createJSONStorage(() => safeStorage) },
   ),

@@ -54,9 +54,19 @@ Canvas 2D + Pointer Events (pressure/tilt), Web Worker region map (fill + stay-i
 - Colorings show in the flip book, on page tiles and the resume card; coloring sessions are logged for Phase 5
 - Tests for region labelling (incl. a real page), fill bleed, history caps, zoom math and save/finish rules
 
-### Phase 4: Advanced tools & assists
-- Crayon, colored pencil, marker, watercolor, glitter brushes; gradient fill; eyedropper
-- Stay-in-the-lines, themed palettes, color-harmony suggestions, recent colors, page completion, left-handed toolbar
+### Phase 4: Advanced tools & assists ✅
+- Eight tools: crayon, colored pencil, marker, paint (watercolor), glitter, fill, eraser, color picker
+  - Crayon / pencil / paint stroke with seamless paper-grain patterns fixed to the page, so re-coloring hits the same tooth
+  - Paint glazes with multiply blending and softens its edges as it "dries"; glitter scatters shaded flecks and sparkles
+  - Per-tool size and strength; keyboard shortcuts C P M W G F E I
+- Fill styles: solid, shade (light to full) and rainbow
+- Stay in the lines (on by default, per child): every stroke, including the eraser, is clipped to the area it starts in
+- Color picker samples the page and returns to the previous tool
+- "Goes with it" suggestions from color-wheel rules (opposites, neighbors, triangle, light to dark)
+- "I'm finished" button: saves, plays a chime, confetti, preview, and offers the next page; pages also finish by
+  themselves at 80%; a child-finished page stays finished until it is cleared
+- Left-handed layout (per child) in the editor's More menu, next to Clear page
+- Tests for color conversion and suggestions, tool specs, and the child-finished rule
 
 ### Phase 5: Analytics, gallery & achievements
 - Event tracking; personal dashboard charts; parent view per child; admin view across accounts on the device

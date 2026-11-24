@@ -20,9 +20,14 @@ export interface SaveInput {
   colorLayer: Blob
   thumb: Blob
   progress: number
+  /** The child tapped "I'm finished". */
+  finish?: boolean
 }
 
-/** Saves a page's coloring. A page becomes finished at 80% and un-finishes if mostly erased. */
+/**
+ * Saves a page's coloring. A page finishes by itself at 80% and un-finishes if
+ * mostly erased, unless the child marked it finished themselves.
+ */
 export async function saveArtwork(input: SaveInput): Promise<Artwork> {
   const id = artworkId(input.profileId, input.bookId, input.pageId)
   const now = Date.now()
@@ -30,8 +35,18 @@ export async function saveArtwork(input: SaveInput): Promise<Artwork> {
     const prev = await db.artworks.get(id)
     const progress = Math.max(0, Math.min(1, input.progress))
     let completedAt = prev?.completedAt ?? null
+    let finishedByChild = prev?.finishedByChild ?? false
+    if (input.finish) {
+      completedAt = completedAt ?? now
+      finishedByChild = true
+    }
     if (!completedAt && progress >= FINISHED_AT) completedAt = now
-    if (completedAt && progress < UNFINISHED_BELOW) completedAt = null
+    if (completedAt && !finishedByChild && progress < UNFINISHED_BELOW) completedAt = null
+    // Clearing nearly everything always resets the page.
+    if (progress < 0.02) {
+      completedAt = null
+      finishedByChild = false
+    }
     const art: Artwork = {
       id,
       profileId: input.profileId,
@@ -41,6 +56,7 @@ export async function saveArtwork(input: SaveInput): Promise<Artwork> {
       thumb: input.thumb,
       progress,
       completedAt,
+      finishedByChild,
       updatedAt: now,
     }
     await db.artworks.put(art)

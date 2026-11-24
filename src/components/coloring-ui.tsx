@@ -1,11 +1,47 @@
-import { Check, Eraser, PaintBucket, Paintbrush, Pencil, Plus, type LucideIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
-import { TOOL_ORDER, TOOLS, type ToolId } from '../coloring/tools'
+import {
+  Check,
+  Eraser,
+  Highlighter,
+  PaintBucket,
+  Paintbrush,
+  Pencil,
+  Pipette,
+  Plus,
+  Shuffle,
+  Sparkles,
+  type LucideIcon,
+  type LucideProps,
+} from 'lucide-react'
+import { useState, type ReactNode } from 'react'
+import { HARMONIES, suggestColors, type Harmony } from '../coloring/colors'
+import { FILL_MODES, TOOL_ORDER, TOOLS, type FillMode, type ToolId } from '../coloring/tools'
 import { cn } from './ui'
 
-const ICONS: Record<ToolId, LucideIcon> = { pencil: Pencil, brush: Paintbrush, fill: PaintBucket, eraser: Eraser }
+/** A crayon lying on its side, drawn to sit with the lucide icon set. */
+function CrayonIcon({ className, strokeWidth = 2 }: LucideProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <g transform="rotate(-45 12 12)">
+        <path d="M3.5 9h12v6h-12z" />
+        <path d="M15.5 10l4.5 2-4.5 2" />
+        <path d="M7 9v6M11.5 9v6" />
+      </g>
+    </svg>
+  )
+}
 
-/** The four tools as big, kid-sized buttons. */
+const ICONS: Record<ToolId, LucideIcon | typeof CrayonIcon> = {
+  crayon: CrayonIcon,
+  pencil: Pencil,
+  marker: Highlighter,
+  watercolor: Paintbrush,
+  glitter: Sparkles,
+  fill: PaintBucket,
+  eraser: Eraser,
+  picker: Pipette,
+}
+
+/** Every tool as a big, kid-sized button. Tools that put color down show the current color. */
 export function ToolPicker({
   tool,
   color,
@@ -18,10 +54,11 @@ export function ToolPicker({
   direction: 'row' | 'column'
 }) {
   return (
-    <div role="radiogroup" aria-label="Tools" className={cn('flex gap-1.5', direction === 'column' ? 'flex-col' : 'flex-row')}>
+    <div role="radiogroup" aria-label="Tools" className={cn('flex gap-1', direction === 'column' ? 'flex-col' : 'flex-row')}>
       {TOOL_ORDER.map((id) => {
         const Icon = ICONS[id]
         const active = tool === id
+        const showsColor = id !== 'eraser' && id !== 'picker'
         return (
           <button
             key={id}
@@ -31,19 +68,15 @@ export function ToolPicker({
             onClick={() => onChange(id)}
             title={`${TOOLS[id].label} (${TOOLS[id].shortcut.toUpperCase()})`}
             className={cn(
-              'relative flex flex-col items-center gap-0.5 rounded-2xl py-2 text-[0.75rem] font-semibold transition-[background-color,color,transform] active:scale-95',
-              direction === 'column' ? 'w-16' : 'w-14 shrink-0',
+              'relative flex shrink-0 flex-col items-center gap-0.5 rounded-2xl py-1.5 text-[0.75rem] font-semibold transition-[background-color,color,transform] active:scale-95',
+              direction === 'column' ? 'w-16' : 'w-14',
               active ? 'bg-ink text-white shadow-lift' : 'text-graphite hover:bg-frost hover:text-ink',
             )}
           >
             <Icon className="size-7" strokeWidth={active ? 2.3 : 2} />
             {TOOLS[id].label}
-            {id !== 'eraser' ? (
-              <span
-                aria-hidden
-                className="absolute top-1.5 right-2.5 size-3 rounded-full ring-2 ring-white"
-                style={{ backgroundColor: color }}
-              />
+            {showsColor ? (
+              <span aria-hidden className="absolute top-1 right-2 size-3 rounded-full ring-2 ring-white" style={{ backgroundColor: color }} />
             ) : null}
           </button>
         )
@@ -79,15 +112,48 @@ export function SizePicker({
           aria-checked={value === i}
           aria-label={labels[i] ?? `Size ${i + 1}`}
           onClick={() => onChange(i)}
+          className={cn('grid size-12 shrink-0 place-items-center rounded-full transition-colors', value === i ? 'bg-frost ring-2 ring-inset ring-ink' : 'hover:bg-frost')}
+        >
+          <span className="rounded-full" style={{ width: 6 + (s / max) * 22, height: 6 + (s / max) * 22, backgroundColor: color }} />
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Solid, shade (light to full) or rainbow, each shown as a little swatch. */
+export function FillModePicker({
+  value,
+  onChange,
+  color,
+  direction,
+}: {
+  value: FillMode
+  onChange: (m: FillMode) => void
+  color: string
+  direction: 'row' | 'column'
+}) {
+  const preview: Record<FillMode, string> = {
+    solid: color,
+    shade: `linear-gradient(180deg, color-mix(in srgb, ${color} 40%, white), ${color})`,
+    rainbow: 'linear-gradient(90deg, #e0475b, #f28a2e, #f2c230, #3ba55c, #3d8be8, #8559d9)',
+  }
+  return (
+    <div role="radiogroup" aria-label="Fill style" className={cn('flex items-center gap-1', direction === 'column' ? 'flex-col' : 'flex-row')}>
+      {FILL_MODES.map((m) => (
+        <button
+          key={m.id}
+          type="button"
+          role="radio"
+          aria-checked={value === m.id}
+          onClick={() => onChange(m.id)}
           className={cn(
-            'grid size-12 place-items-center rounded-full transition-colors',
-            value === i ? 'bg-frost ring-2 ring-inset ring-ink' : 'hover:bg-frost',
+            'flex w-16 shrink-0 flex-col items-center gap-1 rounded-2xl py-1.5 text-[0.75rem] font-semibold',
+            value === m.id ? 'bg-frost text-ink ring-2 ring-inset ring-ink' : 'text-graphite hover:bg-frost',
           )}
         >
-          <span
-            className="rounded-full"
-            style={{ width: 6 + (s / max) * 22, height: 6 + (s / max) * 22, backgroundColor: color }}
-          />
+          <span className="size-7 rounded-lg ring-1 ring-black/10" style={{ background: preview[m.id] }} />
+          {m.label}
         </button>
       ))}
     </div>
@@ -110,6 +176,36 @@ export function OpacitySlider({ value, onChange, color }: { value: number; onCha
         aria-valuetext={`${Math.round(value * 100)}%`}
       />
     </label>
+  )
+}
+
+/** "Colors that go together": five suggestions for the current color, with a button to try another rule. */
+export function Suggestions({ color, onPick, layout }: { color: string; onPick: (c: string) => void; layout: 'grid' | 'row' }) {
+  const [rule, setRule] = useState(0)
+  const harmony: Harmony = HARMONIES[rule].id
+  const colors = suggestColors(color, harmony)
+  const next = () => setRule((r) => (r + 1) % HARMONIES.length)
+  return (
+    <div className={cn(layout === 'row' ? 'flex shrink-0 items-center gap-2' : 'flex flex-col gap-2')}>
+      <div className={cn('flex items-center gap-2', layout === 'grid' && 'justify-between')}>
+        <span className="text-[0.875rem] font-semibold text-graphite">
+          Goes with it
+        </span>
+        <button
+          type="button"
+          onClick={next}
+          className="inline-flex min-h-9 items-center gap-1 rounded-full px-2.5 text-[0.8125rem] font-semibold text-ink hover:bg-frost"
+          title="Try other colors"
+        >
+          <Shuffle className="size-4" /> {HARMONIES[rule].label}
+        </button>
+      </div>
+      <div role="radiogroup" aria-label="Suggested colors" className="flex gap-2">
+        {colors.map((c, i) => (
+          <Swatch key={`${c}-${i}`} color={c} selected={false} onPick={() => onPick(c)} small />
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -158,7 +254,7 @@ export function Palette({
         {swatches(extra)}
         {extra.length ? <span aria-hidden className="mx-1 h-8 w-0.5 shrink-0 rounded bg-mist" /> : null}
         {swatches(colors)}
-        {children ? <div className="ml-2 min-w-48 shrink-0">{children}</div> : null}
+        {children ? <div className="ml-2 flex shrink-0 items-center gap-4">{children}</div> : null}
       </div>
     )
   }
@@ -176,7 +272,7 @@ export function Palette({
   )
 }
 
-function Swatch({ color, selected, onPick }: { color: string; selected: boolean; onPick: () => void }) {
+function Swatch({ color, selected, onPick, small }: { color: string; selected: boolean; onPick: () => void; small?: boolean }) {
   const light = isLight(color)
   return (
     <button
@@ -186,7 +282,8 @@ function Swatch({ color, selected, onPick }: { color: string; selected: boolean;
       aria-label={color}
       onClick={onPick}
       className={cn(
-        'grid size-11 shrink-0 place-items-center rounded-full transition-transform active:scale-90',
+        'grid shrink-0 place-items-center rounded-full transition-transform active:scale-90',
+        small ? 'size-9' : 'size-11',
         light && 'ring-2 ring-inset ring-mist',
       )}
       style={{

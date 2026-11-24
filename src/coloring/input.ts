@@ -1,4 +1,5 @@
 import type { StrokePoint } from './engine'
+import { isTapTool, type ToolId } from './tools'
 import { panBy, zoomAt, type Layout, type View } from './viewport'
 
 /**
@@ -14,7 +15,7 @@ import { panBy, zoomAt, type Layout, type View } from './viewport'
  */
 export interface InputCallbacks {
   ready(): boolean
-  tool(): 'pencil' | 'brush' | 'fill' | 'eraser'
+  tool(): ToolId
   penOnly(): boolean
   spaceHeld(): boolean
   /** Client coordinates → canvas pixels. */
@@ -27,7 +28,8 @@ export interface InputCallbacks {
   onStrokeMove(pts: StrokePoint[]): void
   onStrokeEnd(): void
   onStrokeCancel(): void
-  onFill(pt: StrokePoint): void
+  /** A tap with a tap tool (fill, color picker). */
+  onTap(pt: StrokePoint): void
   onUndo(): void
   onRedo(): void
 }
@@ -159,7 +161,7 @@ export class StageInput {
     this.primary = e.pointerId
     this.primaryType = e.pointerType
     this.primaryStart = performance.now()
-    if (this.cb.tool() === 'fill') {
+    if (isTapTool(this.cb.tool())) {
       this.mode = 'fill'
     } else {
       this.mode = 'draw'
@@ -193,7 +195,7 @@ export class StageInput {
       this.cb.onStrokeEnd()
       this.mode = 'idle'
     } else if (this.mode === 'fill' && e.pointerId === this.primary) {
-      if (!cancelled && Math.hypot(p.x - p.startX, p.y - p.startY) < TAP_SLOP) this.cb.onFill(this.point(e))
+      if (!cancelled && Math.hypot(p.x - p.startX, p.y - p.startY) < TAP_SLOP) this.cb.onTap(this.point(e))
       this.mode = 'idle'
     } else if (this.mode === 'gesture' && this.gesture) {
       const g = this.gesture
