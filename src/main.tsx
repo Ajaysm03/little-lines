@@ -24,7 +24,15 @@ const ColorScreen = lazy(() => import('./screens/ColorScreen').then((m) => ({ de
 const AdminLayout = lazy(() => import('./admin/AdminLayout').then((m) => ({ default: m.AdminLayout })))
 const AdminOverview = lazy(() => import('./admin/OverviewScreen').then((m) => ({ default: m.OverviewScreen })))
 const AdminAudit = lazy(() => import('./admin/AuditScreen').then((m) => ({ default: m.AuditScreen })))
-const AdminComingSoon = lazy(() => import('./admin/ComingSoon').then((m) => ({ default: m.ComingSoon })))
+const AdminEmails = lazy(() => import('./admin/AdminEmails').then((m) => ({ default: m.AdminEmails })))
+const AdminUsers = lazy(() => import('./admin/AdminUsers').then((m) => ({ default: m.AdminUsers })))
+const AdminUserDetail = lazy(() => import('./admin/AdminUserDetail').then((m) => ({ default: m.AdminUserDetail })))
+const AdminAnalytics = lazy(() => import('./admin/AdminAnalytics').then((m) => ({ default: m.AdminAnalytics })))
+const AdminPlans = lazy(() => import('./admin/AdminPlans').then((m) => ({ default: m.AdminPlans })))
+const AdminBooks = lazy(() => import('./admin/AdminBooks').then((m) => ({ default: m.AdminBooks })))
+const AdminBookUpload = lazy(() => import('./admin/AdminBookUpload').then((m) => ({ default: m.AdminBookUpload })))
+const AdminBookEditor = lazy(() => import('./admin/AdminBookEditor').then((m) => ({ default: m.AdminBookEditor })))
+const AdminBookPreview = lazy(() => import('./admin/AdminBookPreview').then((m) => ({ default: m.AdminBookPreview })))
 
 function Loading({ children }: { children: ReactNode }) {
   return <Suspense fallback={<Splash />}>{children}</Suspense>
@@ -126,12 +134,25 @@ const router = createBrowserRouter([
             ),
             children: [
               { index: true, element: <AdminOverview /> },
-              { path: 'users', element: <AdminComingSoon area="users" /> },
-              { path: 'books', element: <AdminComingSoon area="books" /> },
-              { path: 'analytics', element: <AdminComingSoon area="analytics" /> },
-              { path: 'emails', element: <AdminComingSoon area="emails" /> },
+              { path: 'users', element: <AdminUsers /> },
+              { path: 'users/:id', element: <AdminUserDetail /> },
+              { path: 'books', element: <AdminBooks /> },
+              { path: 'plans', element: <AdminPlans /> },
+              { path: 'books/new', element: <AdminBookUpload /> },
+              { path: 'books/:id', element: <AdminBookEditor /> },
+              { path: 'analytics', element: <AdminAnalytics /> },
+              { path: 'emails', element: <AdminEmails /> },
               { path: 'audit', element: <AdminAudit /> },
             ],
+          },
+          {
+            // Full screen, like the family reader.
+            path: 'books/:id/preview',
+            element: (
+              <Loading>
+                <AdminBookPreview />
+              </Loading>
+            ),
           },
         ],
       },

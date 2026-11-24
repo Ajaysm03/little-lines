@@ -6,6 +6,9 @@ import { Dialog } from '../components/Dialog'
 import { PinPad } from '../components/PinPad'
 import { Button, ButtonLink } from '../components/ui'
 import { changeParentPin, MAX_PROFILES, verifyParentPin } from '../data/accounts'
+import { api, type EmailPrefs, type FamilyPlan } from '../data/api'
+import { db } from '../data/db'
+import { currentPlan, daysLeft } from '../data/plans'
 import { useProfiles } from '../state/hooks'
 import { useBooks } from '../state/library-store'
 import { useSession } from '../state/session-store'
@@ -113,6 +116,10 @@ export function GrownUps() {
         )}
       </section>
 
+      <PlanSection plan={account.plan} />
+
+      <EmailSection accountId={account.id} email={account.email} prefs={account.emailPrefs} />
+
       <section className="mt-12" aria-labelledby="books-h">
           <h2 id="books-h" className="font-display text-heading font-bold text-ink-deep">
             Your family’s books
@@ -126,7 +133,7 @@ export function GrownUps() {
                   <p className="truncate font-semibold text-ink-deep">{b.title}</p>
                   <p className="text-[0.9375rem] text-graphite">
                     {b.pages.filter((p) => p.kind === 'line-art').length} pages to color,{' '}
-                    {b.origin === 'bundled' ? 'comes with the app' : 'added from a PDF'}
+                    {b.origin === 'bundled' ? 'comes with the app' : b.origin === 'catalog' ? 'from the Little Lines library' : 'added from a PDF'}
                   </p>
                 </div>
               </li>
@@ -212,5 +219,107 @@ function SyncStatus() {
     <p role="status" className="mt-1 text-[0.9375rem] text-graphite">
       {text}
     </p>
+  )
+}
+
+const longDate = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
+
+/** The family's plan, set by the Little Lines team: what it unlocks and until when. */
+function PlanSection({ plan }: { plan: FamilyPlan | null | undefined }) {
+  const now = Date.now()
+  const current = currentPlan(plan, now)
+  const ended = plan && plan.plan !== 'free' && current === 'free' && plan.endsAt ? plan.endsAt : null
+  let name = 'Free'
+  let detail = 'Premium books are locked. Every other book is yours to color.'
+  if (current === 'trial' && plan?.endsAt) {
+    name = 'Trial'
+    const days = daysLeft(plan.endsAt, now)
+    detail = `Every book is unlocked until ${longDate.format(plan.endsAt)} (${days} ${days === 1 ? 'day' : 'days'} left). After that, Premium books are locked.`
+  } else if (current === 'premium') {
+    name = 'Premium'
+    detail = plan?.endsAt ? `Every book is unlocked until ${longDate.format(plan.endsAt)}.` : 'Every book is unlocked.'
+  } else if (ended) {
+    detail = `Your ${plan!.plan === 'trial' ? 'trial' : 'Premium plan'} ended on ${longDate.format(ended)}, so Premium books are locked.`
+  }
+  return (
+    <section className="mt-12" aria-labelledby="plan-h">
+      <h2 id="plan-h" className="font-display text-heading font-bold text-ink-deep">
+        Plan
+      </h2>
+      <div className="mt-4 rounded-3xl bg-paper px-5 py-4 ring-2 ring-inset ring-mist">
+        <p className="font-display text-[1.25rem] font-bold text-ink-deep">{name}</p>
+        <p className="mt-1 max-w-prose text-graphite">{detail}</p>
+      </div>
+      <p className="mt-3 max-w-prose text-[0.9375rem] text-graphite">Plans are set by the Little Lines team. Contact us to change yours.</p>
+    </section>
+  )
+}
+
+/** Which optional emails the family gets. Changing them needs the internet; the welcome and password emails always arrive. */
+function EmailSection({ accountId, email, prefs }: { accountId: string; email: string; prefs: EmailPrefs | undefined }) {
+  const [value, setValue] = useState<EmailPrefs>(prefs ?? { weekly: true, news: true })
+  const [saving, setSaving] = useState<keyof EmailPrefs | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  async function toggle(key: keyof EmailPrefs) {
+    const next = { ...value, [key]: !value[key] }
+    setSaving(key)
+    setError(null)
+    try {
+      const saved = await api.setEmailPrefs({ [key]: next[key] })
+      setValue(saved)
+      // Keep this device's copy in step, so the switch shows the same thing next time, even offline.
+      await db.accounts.update(accountId, { emailPrefs: saved })
+      useSession.setState((s) => (s.account ? { account: { ...s.account, emailPrefs: saved } } : {}))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Couldn’t save. Try again.')
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  const rows: Array<{ key: keyof EmailPrefs; title: string; detail: string }> = [
+    { key: 'weekly', title: 'Weekly progress', detail: 'On Mondays: what each child colored last week.' },
+    { key: 'news', title: 'New books', detail: 'When a new coloring book arrives in the library.' },
+  ]
+  return (
+    <section className="mt-12" aria-labelledby="emails-h">
+      <h2 id="emails-h" className="font-display text-heading font-bold text-ink-deep">
+        Emails
+      </h2>
+      <p className="mt-2 text-graphite">Sent to {email}.</p>
+      <ul className="mt-4 divide-y-2 divide-frost overflow-hidden rounded-3xl bg-paper ring-2 ring-inset ring-mist">
+        {rows.map((r) => (
+          <li key={r.key} className="flex items-center gap-4 px-5 py-4">
+            <div className="min-w-0 flex-1">
+              <p id={`email-${r.key}`} className="font-semibold text-ink-deep">
+                {r.title}
+              </p>
+              <p className="text-[0.9375rem] text-graphite">{r.detail}</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={value[r.key]}
+              aria-labelledby={`email-${r.key}`}
+              disabled={saving !== null}
+              onClick={() => toggle(r.key)}
+              className={`relative h-8 w-14 shrink-0 rounded-full transition-colors disabled:opacity-60 ${value[r.key] ? 'bg-meadow-ink' : 'bg-mist'}`}
+            >
+              <span
+                aria-hidden
+                className={`absolute top-1 left-1 size-6 rounded-full bg-white shadow transition-transform ${value[r.key] ? 'translate-x-6' : ''}`}
+              />
+            </button>
+          </li>
+        ))}
+      </ul>
+      {error ? (
+        <p role="alert" className="mt-3 text-[0.9375rem] text-error">
+          {error}
+        </p>
+      ) : null}
+      <p className="mt-3 text-[0.9375rem] text-graphite">Account emails, like password resets, are always sent.</p>
+    </section>
   )
 }

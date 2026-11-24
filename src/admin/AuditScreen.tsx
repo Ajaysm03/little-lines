@@ -6,9 +6,13 @@ import { useTitle } from '../lib/useTitle'
 import { AdminHeader } from './AdminLayout'
 import { formatDateTime, formatWhen } from './format'
 
-/** Filters by action prefix (comma-separated prefixes go to the server as is). Later phases add books, users, plans and emails. */
+/** Filters by action prefix (comma-separated prefixes go to the server as is). */
 const FILTERS = [
   { id: 'all', label: 'Everything', action: '' },
+  { id: 'users', label: 'Users', action: 'user.' },
+  { id: 'books', label: 'Books', action: 'book.' },
+  { id: 'plans', label: 'Plans', action: 'plan.,settings.' },
+  { id: 'emails', label: 'Emails', action: 'email.' },
   { id: 'signins', label: 'Sign-ins', action: 'owner.signed_in' },
   { id: 'account', label: 'Account and roles', action: 'owner.created,owner.updated,role.' },
 ] as const

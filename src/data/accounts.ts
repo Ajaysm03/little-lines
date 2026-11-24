@@ -41,6 +41,8 @@ export async function saveFamily(f: ServerFamily): Promise<PublicAccount> {
     parentPinHash: f.parentPinHash,
     role: f.role,
     username: f.username,
+    plan: f.plan,
+    emailPrefs: f.emailPrefs,
     signInMethods: f.signInMethods,
     createdAt: f.createdAt,
     lastLoginAt: prev?.lastLoginAt ?? Date.now(),

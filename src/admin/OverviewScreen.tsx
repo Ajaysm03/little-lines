@@ -117,7 +117,14 @@ function OverviewBody({ overview, audit }: { overview: AdminOverview; audit: Loa
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[3fr_2fr]">
-        <Panel title="Newest families" aside={<span className="text-[0.875rem] text-graphite">Full user list in Phase D</span>}>
+        <Panel
+          title="Newest families"
+          aside={
+            <Link to="/admin/users" className="inline-flex items-center gap-1 text-[0.9375rem] font-semibold text-ink hover:underline">
+              All users <ChevronRight className="size-4" />
+            </Link>
+          }
+        >
           {recentFamilies.length ? (
             <div className="-mx-5 overflow-x-auto sm:-mx-6">
               <table className="w-full min-w-[36rem] text-left text-[0.9375rem]">

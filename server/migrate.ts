@@ -1,6 +1,10 @@
 import { getMigrations } from 'better-auth/db/migration'
 import { audit } from './audit.js'
 import { getAuth } from './auth.js'
+import { CATALOG_SCHEMA, moveFamilyImports } from './catalog.js'
+import { giveExistingFamiliesTrial, PLAN_SCHEMA } from './plans.js'
+import { USERS_SCHEMA } from './users.js'
+import { EMAIL_SCHEMA } from './emails.js'
 import { query } from './db.js'
 
 /**
@@ -102,6 +106,10 @@ export async function migrate(log: (msg: string) => void = () => {}): Promise<vo
     await runMigrations()
   } else log('Sign-in tables are up to date')
   await query(APP_SCHEMA)
+  await query(CATALOG_SCHEMA)
+  await query(PLAN_SCHEMA)
+  await query(USERS_SCHEMA)
+  await query(EMAIL_SCHEMA)
   // Roles are now "owner" (set by npm run owner:create) and "parent". The old
   // rule made the first family an "admin"; those families become grown-ups.
   const demoted = await query<{ user_id: string }>(`update app_family set role = 'parent' where role = 'admin' returning user_id`)
@@ -117,5 +125,7 @@ export async function migrate(log: (msg: string) => void = () => {}): Promise<vo
       after: { role: 'parent' },
     })
   if (demoted.rowCount) log(`Moved ${demoted.rowCount} old admin account(s) to grown-up`)
+  await moveFamilyImports(log)
+  await giveExistingFamiliesTrial(log)
   log('App tables are up to date')
 }

@@ -7,6 +7,7 @@ import { hashSecret, PIN_ITERATIONS } from '../../src/lib/crypto.js'
 import { getAuth } from '../auth.js'
 import { getPool, query } from '../db.js'
 import { migrate } from '../migrate.js'
+import { newFamilyPlan } from '../plans.js'
 
 const SEED = {
   name: process.env.SEED_NAME || 'Test Parent',
@@ -27,11 +28,12 @@ async function main() {
   const created = await getAuth().api.signUpEmail({ body: { name: SEED.name, email: SEED.email, password: SEED.password } })
   userId = created.user.id
   const now = Date.now()
+  const plan = await newFamilyPlan(now)
   await query(
-    `insert into app_family (user_id, parent_pin_hash, role, created_at)
-     values ($1, $2, case when exists (select 1 from app_family) then 'parent' else 'admin' end, $3)
+    `insert into app_family (user_id, parent_pin_hash, role, created_at, plan, plan_started_at, plan_ends_at, plan_updated_at)
+     values ($1, $2, 'parent', $3, $4, $5, $6, $3)
      on conflict (user_id) do update set parent_pin_hash = excluded.parent_pin_hash`,
-    [userId, await hashSecret(SEED.parentPin, PIN_ITERATIONS), now],
+    [userId, await hashSecret(SEED.parentPin, PIN_ITERATIONS), now, plan.plan, plan.startedAt, plan.endsAt],
   )
   const kids = [
     { name: 'Maya', avatar: 'bunny', color: 'cranberry', pin: null as string | null },

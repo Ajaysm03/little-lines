@@ -1,6 +1,11 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { fromNodeHeaders, toNodeHandler } from 'better-auth/node'
 import { listAudit } from './audit.js'
+import * as catalog from './catalog.js'
+import { analytics, AnalyticsError } from './analytics.js'
+import * as emails from './emails.js'
+import * as plans from './plans.js'
+import * as users from './users.js'
 import { getAuth } from './auth.js'
 import { query } from './db.js'
 import { googleEnabled } from './env.js'
@@ -14,11 +19,16 @@ import { googleEnabled } from './env.js'
  *   /api/me            the signed-in family; PUT /api/me/pin sets the parent PIN
  *   /api/sync          pull changes since a time (GET) and push local changes (POST)
  *   /api/blob?key=     page images and colorings (GET / PUT)
- *   /api/admin/*       the owner console (owner only): overview, audit log
+ *   /api/catalog       published books for families; /api/catalog/image?key= their page images
+ *   /api/email/unsubscribe   the signed link in family emails (no sign-in needed)
+ *   /api/cron/weekly-digest  Monday's progress emails (Vercel Cron, with CRON_SECRET)
+ *   /api/admin/*       the owner console (owner only): overview, users, books, plans, analytics, emails, audit log
  */
 
 const MAX_JSON = 2 * 1024 * 1024
 const MAX_BLOB = 8 * 1024 * 1024
+/** Vercel functions accept request bodies up to 4.5 MB, so book images are sent one at a time below that. */
+const MAX_BOOK_IMAGE = 4 * 1024 * 1024
 
 type Row = Record<string, unknown>
 
@@ -47,9 +57,28 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
       return
     }
     if (path === '/api/config' && req.method === 'GET') return json(res, 200, { google: googleEnabled() })
+    if (path === '/api/email/unsubscribe' && (req.method === 'GET' || req.method === 'POST')) {
+      const body = req.method === 'POST' ? (await readBody(req, 4096)).toString('utf8') : ''
+      const out = await emails.unsubscribe(req.method, url.searchParams, body.includes('List-Unsubscribe=One-Click'))
+      res.statusCode = out.status
+      res.setHeader('content-type', out.html.startsWith('<!doctype') ? 'text/html; charset=utf-8' : 'text/plain; charset=utf-8')
+      res.setHeader('cache-control', 'no-store')
+      res.end(out.html)
+      return
+    }
+    if (path === '/api/cron/weekly-digest' && req.method === 'GET') {
+      // Vercel Cron sends "Authorization: Bearer <CRON_SECRET>"; without the secret set, nobody can run it this way.
+      const secret = process.env.CRON_SECRET
+      if (!secret || req.headers.authorization !== `Bearer ${secret}`) throw new HttpError(401, 'Not allowed')
+      return json(res, 200, await emails.sendWeeklyDigests())
+    }
 
     const user = await requireUser(req)
     if (path === '/api/me' && req.method === 'GET') return json(res, 200, await me(user))
+    if (path === '/api/me/email-prefs' && req.method === 'PUT') {
+      await ensureFamily(user.id)
+      return json(res, 200, await emails.setPrefs(user.id, (await readJson(req)) as { weekly?: unknown; news?: unknown }))
+    }
     if (path === '/api/me/pin' && req.method === 'PUT') {
       const body = (await readJson(req)) as { parentPinHash?: unknown }
       if (typeof body.parentPinHash !== 'string' || !body.parentPinHash.startsWith('pbkdf2-sha256$'))
@@ -77,8 +106,82 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
         return await putBlob(req, res, user.id, key)
       }
     }
+    if (path === '/api/catalog' && req.method === 'GET') return json(res, 200, await catalog.familyCatalog())
+    if (path === '/api/catalog/image' && req.method === 'GET') {
+      const fam = await query('select * from app_family where user_id = $1', [user.id])
+      const isOwner = fam.rows[0]?.role === 'owner'
+      const plan = fam.rows[0] ? plans.rowToPlan(fam.rows[0]).effective : 'free'
+      const img = await catalog.getImage(url.searchParams.get('key') ?? '', { isOwner, plan })
+      if (img === 'locked') throw new HttpError(403, 'This page is in a Premium book')
+      if (!img) throw new HttpError(404, 'Not found')
+      res.statusCode = 200
+      res.setHeader('content-type', img.type)
+      // Image URLs carry the book's version (?v=), so a changed image gets a new URL.
+      res.setHeader('cache-control', url.searchParams.get('v') ? 'private, max-age=31536000, immutable' : 'private, no-cache')
+      res.end(img.data)
+      return
+    }
     if (path.startsWith('/api/admin/')) {
-      await requireOwner(user.id)
+      const actor = await requireOwner(user.id)
+      const bookPath = path.match(/^\/api\/admin\/books\/([a-z0-9-]{2,64})(\/(image|status|tier|announce))?$/)
+      if (path === '/api/admin/emails' && req.method === 'GET') return json(res, 200, await emails.emailOverview())
+      if (path === '/api/admin/emails/preview' && req.method === 'GET') {
+        const mail = await emails.preview(url.searchParams.get('kind'), 'family@example.com', actor.id, url.searchParams.get('bookId'))
+        return json(res, 200, { subject: mail.subject, html: mail.html, text: mail.text })
+      }
+      if (path === '/api/admin/emails/test' && req.method === 'POST') {
+        const body = (await readJson(req)) as { kind?: unknown; bookId?: string }
+        return json(res, 200, await emails.sendTest(actor, body.kind, body.bookId))
+      }
+      if (path === '/api/admin/emails/weekly-digest' && req.method === 'POST') return json(res, 200, await emails.sendWeeklyDigests())
+      if (path === '/api/admin/analytics' && req.method === 'GET')
+        return json(res, 200, await analytics({ from: url.searchParams.get('from'), to: url.searchParams.get('to'), tzOffsetMin: url.searchParams.get('tz') }))
+      if (path === '/api/admin/users' && req.method === 'GET') return json(res, 200, await users.listUsers())
+      const userPath = path.match(/^\/api\/admin\/users\/([\w-]{1,64})(\/(suspend|reactivate|password-reset))?$/)
+      if (userPath) {
+        const [, id, , sub] = userPath
+        if (!sub && req.method === 'GET') return json(res, 200, await users.getUser(id))
+        if (!sub && req.method === 'DELETE') return json(res, 200, await users.deleteUser(actor, id, ((await readJson(req)) as { confirmEmail?: unknown }).confirmEmail))
+        if (sub === 'suspend' && req.method === 'POST') return json(res, 200, await users.suspendUser(actor, id, ((await readJson(req)) as { reason?: unknown }).reason))
+        if (sub === 'reactivate' && req.method === 'POST') return json(res, 200, await users.reactivateUser(actor, id))
+        if (sub === 'password-reset' && req.method === 'POST') return json(res, 200, await users.sendPasswordReset(actor, id))
+      }
+      if (path === '/api/admin/plans' && req.method === 'GET') return json(res, 200, await plans.ownerPlans())
+      if (path === '/api/admin/settings/trial-days' && req.method === 'PUT')
+        return json(res, 200, { trialDays: await plans.setTrialDays(actor, ((await readJson(req)) as { trialDays?: unknown }).trialDays) })
+      const planPath = path.match(/^\/api\/admin\/families\/([\w-]{1,64})\/plan$/)
+      if (planPath && req.method === 'PUT') return json(res, 200, await plans.setFamilyPlan(actor, planPath[1], (await readJson(req)) as { plan?: unknown }))
+      if (path === '/api/admin/books' && req.method === 'GET') return json(res, 200, await catalog.ownerCatalog())
+      if (path === '/api/admin/books' && req.method === 'POST') return json(res, 200, await catalog.createBook(actor, (await readJson(req)) as { meta?: unknown; pages?: unknown }))
+      if (path === '/api/admin/books/order' && req.method === 'PUT') {
+        const body = (await readJson(req)) as { ids?: unknown; bundled?: Record<string, string> }
+        await catalog.setOrder(actor, body.ids, body.bundled ?? {})
+        return json(res, 200, { ok: true })
+      }
+      if (bookPath) {
+        const [, id, , sub] = bookPath
+        if (!sub && req.method === 'GET') return json(res, 200, await catalog.getBook(id))
+        if (!sub && req.method === 'PUT') return json(res, 200, await catalog.updateBook(actor, id, (await readJson(req)) as { meta?: unknown; pages?: unknown }))
+        if (!sub && req.method === 'DELETE') {
+          await catalog.deleteBook(actor, id, ((await readJson(req)) as { confirmTitle?: unknown }).confirmTitle)
+          return json(res, 200, { ok: true })
+        }
+        if (sub === 'image' && req.method === 'PUT') {
+          const data = await readBody(req, MAX_BOOK_IMAGE)
+          await catalog.putImage(id, url.searchParams.get('key') ?? '', String(req.headers['content-type'] ?? ''), data)
+          return json(res, 200, { ok: true })
+        }
+        if (sub === 'status' && req.method === 'PUT') {
+          const body = (await readJson(req)) as { status?: unknown; bundledTitle?: string }
+          return json(res, 200, await catalog.setStatus(actor, id, body.status, body.bundledTitle))
+        }
+        if (sub === 'announce' && req.method === 'GET') return json(res, 200, await emails.announcementStatus(id))
+        if (sub === 'announce' && req.method === 'POST') return json(res, 200, await emails.announceBook(actor, id))
+        if (sub === 'tier' && req.method === 'PUT') {
+          const body = (await readJson(req)) as { tier?: unknown; bundledTitle?: string }
+          return json(res, 200, await catalog.setTier(actor, id, body.tier, body.bundledTitle))
+        }
+      }
       if (path === '/api/admin/overview' && req.method === 'GET') return json(res, 200, await adminOverview())
       if (path === '/api/admin/audit' && req.method === 'GET')
         return json(
@@ -93,7 +196,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
     }
     throw new HttpError(404, 'Not found')
   } catch (err) {
-    if (err instanceof HttpError) return json(res, err.status, { error: err.message })
+    if (err instanceof HttpError || err instanceof catalog.CatalogError || err instanceof plans.PlanError || err instanceof users.UserError || err instanceof AnalyticsError || err instanceof emails.EmailError) return json(res, err.status, { error: err.message })
     console.error('[api]', err)
     return json(res, 500, { error: 'Something went wrong on the server.' })
   }
@@ -143,23 +246,31 @@ async function requireUser(req: IncomingMessage): Promise<SessionUser> {
 
 /** Creates the family row on first use. Everyone is a grown-up; the owner is made by npm run owner:create. */
 async function ensureFamily(userId: string) {
-  await query(
-    `insert into app_family (user_id, role, created_at) values ($1, 'parent', $2) on conflict (user_id) do nothing`,
-    [userId, Date.now()],
+  const exists = await query('select 1 from app_family where user_id = $1', [userId])
+  if (exists.rowCount) return
+  // New families start on a trial (its length is a setting in the owner console).
+  const now = Date.now()
+  const p = await plans.newFamilyPlan(now)
+  const inserted = await query(
+    `insert into app_family (user_id, role, created_at, plan, plan_started_at, plan_ends_at, plan_updated_at)
+     values ($1, 'parent', $2, $3, $4, $5, $2) on conflict (user_id) do nothing`,
+    [userId, now, p.plan, p.startedAt, p.endsAt],
   )
+  if (inserted.rowCount) await emails.sendWelcome(userId)
 }
 
-async function requireOwner(userId: string) {
-  const { rows } = await query<{ role: string }>('select role from app_family where user_id = $1', [userId])
+async function requireOwner(userId: string): Promise<{ id: string; label: string }> {
+  const { rows } = await query<{ role: string; username: string | null; email: string }>(
+    'select f.role, u.username, u.email from app_family f join "user" u on u.id = f.user_id where f.user_id = $1',
+    [userId],
+  )
   if (rows[0]?.role !== 'owner') throw new HttpError(403, 'Only the owner can open this')
+  return { id: userId, label: rows[0].username ?? rows[0].email }
 }
 
 async function me(user: SessionUser) {
   await ensureFamily(user.id)
-  const { rows } = await query<{ role: string; parent_pin_hash: string | null; created_at: string }>(
-    'select role, parent_pin_hash, created_at from app_family where user_id = $1',
-    [user.id],
-  )
+  const { rows } = await query('select * from app_family where user_id = $1', [user.id])
   const f = rows[0]
   const methods = await query<{ providerId: string }>('select "providerId" from account where "userId" = $1', [user.id])
   const u = await query<{ username: string | null }>('select username from "user" where id = $1', [user.id])
@@ -169,6 +280,8 @@ async function me(user: SessionUser) {
     name: user.name,
     username: u.rows[0]?.username ?? null,
     role: f.role,
+    plan: f.role === 'owner' ? null : plans.rowToPlan(f),
+    emailPrefs: { weekly: f.email_weekly !== false, news: f.email_news !== false },
     parentPinHash: f.parent_pin_hash,
     createdAt: Number(f.created_at),
     signInMethods: methods.rows.map((r) => (r.providerId === 'credential' ? 'password' : r.providerId)),

@@ -26,7 +26,13 @@ export interface Book {
   ageRange: string
   tags: string[]
   theme: BookTheme
-  origin: 'bundled' | 'imported'
+  /** bundled: comes with the app. catalog: added by the owner. imported: an older family PDF import still on this device. */
+  origin: 'bundled' | 'catalog' | 'imported'
+  /** Premium books are locked for families on the Free plan (Phase C). */
+  tier?: 'free' | 'premium'
+  /** When the owner published it; books published in the last 14 days are "New". */
+  publishedAt?: number | null
+  category?: string
   pageSize: { width: number; height: number }
   cover: string
   coverThumb: string
@@ -35,6 +41,12 @@ export interface Book {
 
 /** Built by `npm run assets` from the art folders next to the app. Imported books are added by the library store. */
 export const BUNDLED_BOOKS = bundled as Book[]
+
+const NEW_FOR_MS = 14 * 24 * 60 * 60 * 1000
+
+export function isNewBook(book: Pick<Book, 'publishedAt'>, now = Date.now()): boolean {
+  return !!book.publishedAt && now - book.publishedAt < NEW_FOR_MS
+}
 
 export function colorablePages(book: Book): BookPage[] {
   return book.pages.filter((p) => p.kind === 'line-art')

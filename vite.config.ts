@@ -63,12 +63,25 @@ function apiDevServer(): Plugin {
           globPatterns: ['**/*.{js,mjs,css,html,svg,png,webp,woff2,mp3}'],
           // PDF import and the owner console (owner only, online anyway) and rarely used font subsets
           // still load online; leaving them out keeps the offline cache small on tablets.
-          globIgnores: ['**/pdf*.{js,mjs}', '**/ImportScreen-*.js', '**/{AdminLayout,OverviewScreen,AuditScreen,ComingSoon}-*.js', '**/*-cyrillic*.woff2', '**/*-vietnamese*.woff2', '**/*-greek*.woff2'],
+          globIgnores: ['**/pdf*.{js,mjs}', '**/ImportScreen-*.js', '**/{Admin*,OverviewScreen,AuditScreen,BookChips,BookDetailsFields,format}-*.js', '**/*-cyrillic*.woff2', '**/*-vietnamese*.woff2', '**/*-greek*.woff2'],
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
           navigateFallback: '/index.html',
           // Sign-in redirects (Google, password reset links) must reach the server, not the cached app.
           navigateFallbackDenylist: [/^\/api\//],
           cleanupOutdatedCaches: true,
+          // Pages of books the owner published. Their URLs include the book's version, so a cached
+          // image never goes stale: an edited book gets new URLs. Kept so opened books work offline.
+          runtimeCaching: [
+            {
+              urlPattern: ({ url }) => url.pathname === '/api/catalog/image' && url.searchParams.has('v'),
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'catalog-images',
+                expiration: { maxEntries: 3000, maxAgeSeconds: 60 * 60 * 24 * 365 },
+                cacheableResponse: { statuses: [200] },
+              },
+            },
+          ],
         },
       }),
     ],

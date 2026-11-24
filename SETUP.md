@@ -107,14 +107,23 @@ Free-plan note: pictures are stored in the database (about 100 KB per colored pa
 
 ---
 
-## 3. Send password-reset emails (Resend)
+## 3. Send emails (Resend)
+
+Little Lines sends password resets, a welcome email, a weekly progress summary (Mondays) and "new book"
+announcements. Without a Resend key they're written to the server log instead, and the owner console's
+Emails page says so.
 
 1. Sign up at **https://resend.com** → **API Keys → Create** and put it in `RESEND_API_KEY`.
 2. **Domains → Add domain** and add the DNS records it shows at your domain host. Once verified, set
    `EMAIL_FROM=Little Lines <hello@yourdomain.com>`.
    Until then `onboarding@resend.dev` works, but only delivers to the email you signed up to Resend with.
+3. For the Monday emails, add `CRON_SECRET` (a long random string: `openssl rand -base64 32`) in Vercel. Vercel Cron
+   (set up in `vercel.json`) then calls `/api/cron/weekly-digest` every Monday at 08:00 UTC with that secret. You can
+   also send the week's emails by hand from Owner console → Emails.
 
-Reset links are valid for one hour and work once. Resetting signs the family out on every other device.
+Resend's free plan sends up to 100 emails a day and 3,000 a month; Little Lines sends in batches of 100.
+Every weekly and announcement email has an unsubscribe link (and the one-click header Gmail and Apple Mail
+use); families can also switch them in Grown-ups → Emails. Reset links are valid for one hour and work once.
 
 ---
 
@@ -125,7 +134,7 @@ Reset links are valid for one hour and work once. Resetting signs the family out
    set **Root Directory** to `app`. Vercel reads `vercel.json` (build, API function, page routing).
 3. **Settings → Environment Variables:** add `DATABASE_URL` (Neon `main`), `BETTER_AUTH_SECRET` (a new one),
    `APP_URL` (e.g. `https://little-lines.vercel.app`), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
-   `RESEND_API_KEY`, `EMAIL_FROM`. Don't add the `SEED_*` values to production.
+   `RESEND_API_KEY`, `EMAIL_FROM`, `CRON_SECRET`. Don't add the `SEED_*` values to production.
 4. Run `npm run db:migrate` once against the production database (temporarily point `.env` at it), then
    **Deploy**.
 

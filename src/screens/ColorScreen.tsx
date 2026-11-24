@@ -15,7 +15,8 @@ import {
   Undo2,
 } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { Navigate, useNavigate, useParams } from 'react-router'
+import { isBookLocked } from '../data/plans'
 import { ColoringEngine, type StrokeStyle } from '../coloring/engine'
 import { StageInput } from '../coloring/input'
 import { loadRegions } from '../coloring/load-regions'
@@ -49,7 +50,9 @@ export function ColorScreen() {
   const loaded = useLibrary((s) => s.loaded)
   const index = book?.pages.findIndex((p) => p.id === pageId) ?? -1
   const page = book && index >= 0 ? book.pages[index] : undefined
+  const plan = useSession((s) => s.account?.plan)
   if (!book) return loaded ? <NotFound /> : <Splash />
+  if (isBookLocked(book, plan)) return <Navigate to={`/books/${book.id}`} replace />
   if (!page || page.kind !== 'line-art') return <NotFound />
   return <Editor key={`${book.id}:${page.id}`} book={book} page={page} index={index} />
 }

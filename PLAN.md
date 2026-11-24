@@ -139,38 +139,67 @@ Canvas 2D + Pointer Events (pressure/tilt), Web Worker region map (fill + stay-i
   families, recent activity) and Audit log (filters, details, older entries); Users, Books, Analytics and Emails
   show what their phase adds. Grown-ups who already imported books keep them; new ones are ignored by the server
 
-### Phase B: Book catalog & publishing
+### Phase B: Book catalog & publishing ✅
 - Catalog tables (book + pages + images); Cozy Christmas listed as a built-in book
 - Upload a PDF (same in-browser conversion as today), live progress, page-by-page upload
 - Edit title, subtitle, description, category, age range, tags, theme; replace cover; rename, reorder and remove pages
 - Draft → preview (exactly as families see it) → publish / unpublish; archive and permanent delete (typed confirm)
 - Drag to reorder the library; "New" badge for 14 days after publishing; Free or Premium per book
 - Families get published books from the server (cached for offline); old family imports become drafts
+- Built: catalog tables and API (server/catalog.ts); console Books list (filters, drag or arrow reordering),
+  Upload a PDF, book editor (details, pages, cover, Free/Premium, publish, archive, delete) and full-screen
+  preview. Families load the catalog with the library (kept in localStorage); page images are cached by the
+  service worker under versioned URLs. Cozy Christmas can be hidden, made Premium and reordered. Every change
+  is in the audit log. Adding pages to an existing book means uploading the PDF again
 
-### Phase C: Plans & premium books
+### Phase C: Plans & premium books ✅
 - Plan per family: Free / Trial / Premium, start and end dates, notes; trial expiry handled automatically
 - New families start on a 14-day trial (changeable in settings)
 - Premium books show a lock for Free families with a gentle "ask a grown-up" message; Grown-ups → Plan shows
   the family's plan and dates
 
-### Phase D: Users & management
+- Built: plan columns on each family and a trial-length setting (server/plans.ts); families from before plans
+  started a trial on migrate. Console → Plans: counts, trial length, every family's plan with a dialog to change
+  it (end date, +14 days / +1 month / +1 year, note). Premium book pages are refused by the server to families on
+  Free (covers stay visible); the app shows a lock on the card and the book page and sends the reader/editor back.
+  Books that come with the app are only locked in the app, since their pages ship with it
+
+### Phase D: Users & management ✅
 - Users list: name, username/email, joined, last login, last coloring, status, plan and end date, children, pages
   colored; search, filters (status, plan, joined), sort, pagination, CSV export
 - User detail: children, recent activity, books used; change, extend or gift a plan; suspend / reactivate (signs
   them out everywhere); send a password reset; delete account (typed confirm)
 - Audit log screen with filters
 
-### Phase E: Content & growth analytics
+- Built: server/users.ts. Console → Users (counts, search, status/plan/joined filters, five sorts, 25 per page,
+  CSV of the filtered list) and a user page (children, books, recent activity, account facts, plan dialog, password
+  reset, suspend with a reason, reactivate, delete with the email typed). Suspension is "user"."suspendedAt", checked
+  by Better Auth on every sign-in, and signs the family out everywhere. Last sign-in is recorded from now on
+  (earlier ones only survive while that session still exists)
+
+### Phase E: Content & growth analytics ✅
 - KPIs: families, new this week, daily / weekly / monthly active families, active rate, premium count, pages finished
 - Charts: sign-ups over time, active families over time, coloring minutes, plan mix
 - Per book: opens, pages colored, completion rate, most popular pages; date-range filter
 
-### Phase F: Family emails
+- Built: GET /api/admin/analytics (server/analytics.ts), days in the owner's time zone. Console → Analytics: 7 days,
+  30 days, 90 days (by week) or 12 months (by month); eight figures; new families, active families (average a day
+  for weeks and months), coloring time, plan mix; every book with families, opens, pages started and finished,
+  completion rate and coloring time; most popular pages. "Active" comes from the activity log (opening a book,
+  turning pages, coloring)
+
+### Phase F: Family emails ✅
 - Welcome email on sign-up; weekly progress digest for grown-ups (Vercel Cron, Monday morning); "New book"
   announcement sent by the owner when publishing
 - Grown-ups → Email settings and a one-click unsubscribe link in every email
 - Console → Emails: preview, send a test to yourself, send history and counts
 - Real delivery needs RESEND_API_KEY and a verified sending domain; without it emails go to the server log
+
+- Built: server/emails.ts (templates, log, signed unsubscribe links with one-click headers, weekly summaries,
+  announcements) and Resend batch sending in server/email.ts. Welcome on first sign-in; weekly summary by Vercel
+  Cron (Mondays 08:00 UTC, CRON_SECRET), at most one per family per week, skipped for families with nothing to
+  report; "Announce to families" in the book editor, once per family per book. Console → Emails: sending status,
+  counts, previews, test to yourself, send the week's emails now, history. Grown-ups → Emails: two switches
 
 ### Ideas for later
 Two-step sign-in for the owner, scheduled publishing for seasonal books, families requesting books,

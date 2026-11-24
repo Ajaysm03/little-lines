@@ -147,7 +147,7 @@ export function BarList({
             <span className="flex items-center gap-2">
               <span
                 className="block h-4 max-h-6 rounded-r-[4px]"
-                style={{ width: `${Math.max(2, (r.value / max) * 80)}%`, backgroundColor: tone }}
+                style={{ width: r.value > 0 ? `${Math.max(2, (r.value / max) * 80)}%` : 0, backgroundColor: tone }}
                 title={`${r.label}: ${r.display}`}
               />
               <span className="shrink-0 text-[0.8125rem] font-semibold text-graphite">{r.display}</span>

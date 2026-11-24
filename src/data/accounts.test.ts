@@ -10,6 +10,7 @@ const family: ServerFamily = {
   name: 'Ajay',
   role: 'parent',
   username: null,
+  plan: null,
   parentPinHash: null,
   createdAt: 1,
   signInMethods: ['password'],
@@ -51,6 +52,8 @@ describe('the signed-in family', () => {
 describe('profiles', () => {
   it('creates, edits, protects with a PIN, lists in order and queues each change for sync', async () => {
     const maya = await accounts.createProfile('user-1', { name: 'Maya', avatar: 'fox', color: 'cranberry' })
+    // Profiles are listed by creation time; make sure the two don't share a millisecond on a busy machine.
+    await new Promise((r) => setTimeout(r, 3))
     const leo = await accounts.createProfile('user-1', { name: 'Leo', avatar: 'bear', color: 'sky', pin: '0000' })
     expect((await accounts.listProfiles('user-1')).map((p) => p.name)).toEqual(['Maya', 'Leo'])
     expect(await accounts.verifyProfilePin(maya.id, '')).toBe(true)

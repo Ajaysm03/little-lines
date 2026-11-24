@@ -1,34 +1,57 @@
 import { Resend } from 'resend'
 import { env } from './env.js'
 
-/** The last reset email, for tests and for local development without Resend. */
-export const outbox: Array<{ to: string; url: string }> = []
-
-/** Sends the "reset your password" email, or prints the link when Resend isn't set up. */
-export async function sendPasswordReset(to: string, name: string, url: string): Promise<void> {
-  outbox.push({ to, url })
-  if (outbox.length > 20) outbox.shift()
-  if (!env.RESEND_API_KEY) {
-    console.info(`\n[little-lines] Password reset link for ${to} (RESEND_API_KEY not set, so it was not emailed):\n${url}\n`)
-    return
-  }
-  const resend = new Resend(env.RESEND_API_KEY)
-  const greeting = name ? `Hi ${escapeHtml(name)},` : 'Hi,'
-  const { error } = await resend.emails.send({
-    from: env.EMAIL_FROM,
-    to,
-    subject: 'Reset your Little Lines password',
-    text: `${name ? `Hi ${name},` : 'Hi,'}\n\nSomeone asked to reset the password for your Little Lines family account. Open this link to choose a new one. It works for one hour.\n\n${url}\n\nIf it wasn't you, you can ignore this email; your password stays the same.`,
-    html: `<div style="font-family:system-ui,sans-serif;font-size:16px;line-height:1.5;color:#1b1e45;max-width:480px">
-      <p>${greeting}</p>
-      <p>Someone asked to reset the password for your Little Lines family account. Use the button to choose a new one. It works for one hour.</p>
-      <p><a href="${escapeHtml(url)}" style="display:inline-block;background:#2b2f6b;color:#fff;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:600">Choose a new password</a></p>
-      <p style="color:#5b6180;font-size:14px">If it wasn't you, you can ignore this email; your password stays the same.</p>
-    </div>`,
-  })
-  if (error) throw new Error(`Resend could not send the email: ${error.message}`)
+/**
+ * Sending email: through Resend when RESEND_API_KEY is set, otherwise printed
+ * to the server log (local development, and production before email is set up).
+ * Everything sent is also kept in `mailbox` (the last 50), which tests read.
+ */
+export interface Mail {
+  to: string
+  subject: string
+  html: string
+  text: string
+  headers?: Record<string, string>
 }
 
-function escapeHtml(s: string): string {
+export type Delivery = { status: 'sent' | 'logged' } | { status: 'failed'; error: string }
+
+/** The last reset links, for tests and for local development without Resend. */
+export const outbox: Array<{ to: string; url: string }> = []
+export const mailbox: Mail[] = []
+
+export function emailConfigured(): boolean {
+  return Boolean(env.RESEND_API_KEY)
+}
+
+/** Sends up to any number of emails, 100 per request to Resend (its batch limit). One result per email. */
+export async function deliver(mails: Mail[]): Promise<Delivery[]> {
+  for (const m of mails) {
+    mailbox.push(m)
+    if (mailbox.length > 50) mailbox.shift()
+  }
+  if (!env.RESEND_API_KEY) {
+    for (const m of mails) console.info(`[little-lines] Email to ${m.to} (RESEND_API_KEY not set, so it was not sent): ${m.subject}`)
+    return mails.map(() => ({ status: 'logged' as const }))
+  }
+  const resend = new Resend(env.RESEND_API_KEY)
+  const out: Delivery[] = []
+  for (let i = 0; i < mails.length; i += 100) {
+    const chunk = mails.slice(i, i + 100)
+    try {
+      const { error } =
+        chunk.length === 1
+          ? await resend.emails.send({ from: env.EMAIL_FROM, ...chunk[0] })
+          : await resend.batch.send(chunk.map((m) => ({ from: env.EMAIL_FROM, ...m })))
+      if (error) out.push(...chunk.map(() => ({ status: 'failed' as const, error: error.message })))
+      else out.push(...chunk.map(() => ({ status: 'sent' as const })))
+    } catch (err) {
+      out.push(...chunk.map(() => ({ status: 'failed' as const, error: err instanceof Error ? err.message : String(err) })))
+    }
+  }
+  return out
+}
+
+export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 }

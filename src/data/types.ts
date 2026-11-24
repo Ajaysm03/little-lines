@@ -1,3 +1,5 @@
+import type { EmailPrefs, FamilyPlan } from './api'
+
 /** owner: runs Little Lines (the console). parent: a family's grown-up. */
 export type Role = 'owner' | 'parent'
 
@@ -15,6 +17,9 @@ export interface Account {
   role: Role
   /** The owner signs in with a username too; grown-ups use their email. */
   username?: string | null
+  /** Free, Trial or Premium, set by the owner; kept here so locks work offline. */
+  plan?: FamilyPlan | null
+  emailPrefs?: EmailPrefs
   /** "password", "google". */
   signInMethods?: string[]
   createdAt: number

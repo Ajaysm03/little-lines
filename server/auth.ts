@@ -1,8 +1,9 @@
 import { betterAuth } from 'better-auth'
+import { APIError } from 'better-auth/api'
 import { username } from 'better-auth/plugins/username'
 import { audit } from './audit.js'
 import { getPool, query } from './db.js'
-import { sendPasswordReset } from './email.js'
+import { sendPasswordReset } from './emails.js'
 import { env, googleEnabled } from './env.js'
 
 /**
@@ -42,6 +43,10 @@ function createAuth() {
       // A Google sign-in with the same email as an existing email/password account joins them.
       accountLinking: { enabled: true, trustedProviders: ['google'] },
     },
+    user: {
+      // Set by the owner console (server/users.ts); never by the person themself.
+      additionalFields: { suspendedAt: { type: 'date', required: false, input: false } },
+    },
     session: {
       expiresIn: 60 * 60 * 24 * 30,
       updateAge: 60 * 60 * 24,
@@ -57,8 +62,16 @@ function createAuth() {
     databaseHooks: {
       session: {
         create: {
+          // A suspended account can't sign in (with a password, Google or a reset link). Read through
+          // Better Auth's adapter: sign-up runs in a transaction, and a separate query would wait on it.
+          before: async (session, ctx) => {
+            const user = (await ctx?.context.internalAdapter.findUserById(session.userId)) as { suspendedAt?: Date | null } | null
+            if (user?.suspendedAt)
+              throw new APIError('FORBIDDEN', { message: 'This account is suspended. Contact Little Lines for help.', code: 'ACCOUNT_SUSPENDED' })
+          },
           // Every owner sign-in goes in the audit log, with where it came from.
           after: async (session) => {
+            await query('update app_family set last_login_at = $2 where user_id = $1', [session.userId, Date.now()]).catch(() => {})
             const { rows } = await query<{ role: string; username: string | null; email: string }>(
               `select f.role, u.username, u.email from app_family f join "user" u on u.id = f.user_id where f.user_id = $1`,
               [session.userId],

@@ -1,11 +1,12 @@
 import { ArrowLeft, ChevronLeft, ChevronRight, Flame, Paintbrush, Volume2, VolumeX } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 import { FlipBook, type FlipBookHandle, type FlipPage, type FlipView } from '../components/FlipBook'
 import { cn } from '../components/ui'
 import type { Book } from '../content/books'
 import { isSnowyBook, Snowfall } from '../components/Snowfall'
 import { logEvent } from '../data/events'
+import { isBookLocked } from '../data/plans'
 import { preloadSounds, startFireplace } from '../lib/sounds'
 import { visiblePages } from '../lib/spread'
 import { useArtworkThumbs, useProfileArtworks } from '../state/hooks'
@@ -31,7 +32,10 @@ export function ReaderScreen() {
   const { bookId } = useParams()
   const book = useBook(bookId)
   const loaded = useLibrary((s) => s.loaded)
+  const plan = useSession((s) => s.account?.plan)
   if (!book) return loaded ? <NotFound /> : <Splash />
+  // A Premium book on the Free plan: its page explains the lock.
+  if (isBookLocked(book, plan)) return <Navigate to={`/books/${book.id}`} replace />
   return <Reader key={book.id} book={book} />
 }
 

@@ -1,4 +1,4 @@
-import { BookOpen, ChartLine, LayoutDashboard, LogOut, Mail, ScrollText, Users, type LucideIcon } from 'lucide-react'
+import { BookOpen, ChartLine, Crown, LayoutDashboard, LogOut, Mail, ScrollText, Users, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router'
 import { cn } from '../components/ui'
@@ -15,10 +15,11 @@ interface NavItem {
 
 export const ADMIN_NAV: NavItem[] = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard },
-  { to: '/admin/users', label: 'Users', icon: Users, soon: 'Phase D' },
-  { to: '/admin/books', label: 'Books', icon: BookOpen, soon: 'Phase B' },
-  { to: '/admin/analytics', label: 'Analytics', icon: ChartLine, soon: 'Phase E' },
-  { to: '/admin/emails', label: 'Emails', icon: Mail, soon: 'Phase F' },
+  { to: '/admin/users', label: 'Users', icon: Users },
+  { to: '/admin/books', label: 'Books', icon: BookOpen },
+  { to: '/admin/plans', label: 'Plans', icon: Crown },
+  { to: '/admin/analytics', label: 'Analytics', icon: ChartLine },
+  { to: '/admin/emails', label: 'Emails', icon: Mail },
   { to: '/admin/audit', label: 'Audit log', icon: ScrollText },
 ]
 

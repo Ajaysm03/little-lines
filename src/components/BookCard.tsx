@@ -1,12 +1,15 @@
-import { Check } from 'lucide-react'
+import { Check, Lock } from 'lucide-react'
 import { Link } from 'react-router'
-import type { Book, BookPage } from '../content/books'
+import { isNewBook, type Book, type BookPage } from '../content/books'
+import { isBookLocked } from '../data/plans'
 import { progressLabel, type BookProgress } from '../data/progress'
+import { useSession } from '../state/session-store'
 import { BookCover } from './BookCover'
 import { cn } from './ui'
 
 /** A book on the shelf: cover, title, and how far this child has got. */
 export function BookCard({ book, progress, eager }: { book: Book; progress: BookProgress; eager?: boolean }) {
+  const locked = isBookLocked(book, useSession((s) => s.account?.plan))
   return (
     <Link to={`/books/${book.id}`} className="group block rounded-md">
       <span className="relative block">
@@ -15,15 +18,22 @@ export function BookCard({ book, progress, eager }: { book: Book; progress: Book
           eager={eager}
           className="transition-transform duration-200 group-hover:-translate-y-1 group-active:scale-[0.98]"
         />
+        {locked ? (
+          <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-ink-deep/85 px-2.5 py-1 text-[0.8125rem] font-bold text-white shadow-lift">
+            <Lock className="size-3.5" strokeWidth={2.5} /> Premium
+          </span>
+        ) : null}
         {progress.status === 'finished' ? (
           <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-meadow-ink px-2.5 py-1 text-[0.8125rem] font-bold text-white shadow-lift">
             <Check className="size-4" strokeWidth={3} /> Finished
           </span>
+        ) : isNewBook(book) && progress.status === 'new' ? (
+          <span className="absolute top-2 right-2 rounded-full bg-sunflower px-2.5 py-1 text-[0.8125rem] font-bold text-ink-deep shadow-lift">New</span>
         ) : null}
       </span>
       <span className="mt-3 block font-semibold text-ink-deep">{book.title}</span>
-      <span className="block text-[0.9375rem] text-graphite">{progressLabel(progress)}</span>
-      {progress.status !== 'new' ? <ProgressBar value={progress.fraction} className="mt-2" /> : null}
+      <span className="block text-[0.9375rem] text-graphite">{locked ? 'Ask a grown-up to unlock it' : progressLabel(progress)}</span>
+      {progress.status !== 'new' && !locked ? <ProgressBar value={progress.fraction} className="mt-2" /> : null}
     </Link>
   )
 }

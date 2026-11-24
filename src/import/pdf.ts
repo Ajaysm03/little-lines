@@ -75,13 +75,13 @@ export async function previewPages(doc: PdfDoc, onProgress: (done: number, total
   return out
 }
 
-function toBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> {
+export function toBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> {
   return new Promise((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Could not save a page image'))), type, quality),
   )
 }
 
-function scaled(src: HTMLCanvasElement, width: number): HTMLCanvasElement {
+export function scaled(src: HTMLCanvasElement, width: number): HTMLCanvasElement {
   const c = document.createElement('canvas')
   c.width = width
   c.height = Math.round((src.height / src.width) * width)
