@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router'
 import { PinPad } from '../components/PinPad'
-import { Lock } from 'lucide-react'
-import { PaperCard, Tape } from '../components/cozy'
+import { Lock, LogOut } from 'lucide-react'
+import { ClayButton, PaperCard, Tape } from '../components/cozy'
 import { GrownupsFrame } from '../components/cozy/GrownupsFrame'
 import { Spinner } from '../components/ui'
 import { isParentUnlocked, useSession } from '../state/session-store'
@@ -85,6 +85,7 @@ export function ParentGate({ children, openWhenNoProfiles }: { children: ReactNo
   useTitle(unlockedNow ? undefined : 'Grown-ups only')
   const unlocked = useSession(isParentUnlocked)
   const unlockParent = useSession((s) => s.unlockParent)
+  const logOut = useSession((s) => s.logOut)
   const profiles = useProfiles()
   const navigate = useNavigate()
   // Re-check the expiry every 30 s so an idle grown-ups screen closes itself.
@@ -120,6 +121,17 @@ export function ParentGate({ children, openWhenNoProfiles }: { children: ReactNo
           <p className="mt-8 text-[1.0625rem] leading-snug font-bold text-graphite">
             Forgot it? Sign out and use “Forgot password” to reset your account.
           </p>
+          <ClayButton
+            tone="cream"
+            size="sm"
+            className="mt-4 !text-rust"
+            onClick={async () => {
+              await logOut()
+              navigate('/welcome', { replace: true })
+            }}
+          >
+            <LogOut className="size-5" aria-hidden /> Sign out
+          </ClayButton>
         </PaperCard>
       </div>
     </GrownupsFrame>
