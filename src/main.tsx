@@ -16,6 +16,7 @@ import { ProfileEditor } from './screens/ProfileEditor'
 import { ForgotPasswordScreen, ResetPasswordScreen, SetupPinScreen } from './screens/PasswordScreens'
 import { ProfilePicker } from './screens/ProfilePicker'
 import { SignUpScreen } from './screens/SignUpScreen'
+import { StickersScreen } from './screens/StickersScreen'
 import { WelcomeScreen } from './screens/WelcomeScreen'
 
 // Heavier screens load on first use: the flip book, the coloring editor, and the owner console.
@@ -33,6 +34,8 @@ const AdminBooks = lazy(() => import('./admin/AdminBooks').then((m) => ({ defaul
 const AdminBookUpload = lazy(() => import('./admin/AdminBookUpload').then((m) => ({ default: m.AdminBookUpload })))
 const AdminBookEditor = lazy(() => import('./admin/AdminBookEditor').then((m) => ({ default: m.AdminBookEditor })))
 const AdminBookPreview = lazy(() => import('./admin/AdminBookPreview').then((m) => ({ default: m.AdminBookPreview })))
+// Developer-only kit of the cozy building blocks; not part of production builds.
+const KitScreen = import.meta.env.DEV ? lazy(() => import('./screens/KitScreen').then((m) => ({ default: m.KitScreen }))) : null
 
 function Loading({ children }: { children: ReactNode }) {
   return <Suspense fallback={<Splash />}>{children}</Suspense>
@@ -115,6 +118,7 @@ const router = createBrowserRouter([
                   { path: 'home', element: <HomeScreen /> },
                   { path: 'library', element: <LibraryScreen /> },
                   { path: 'gallery', element: <GalleryScreen /> },
+                  { path: 'stickers', element: <StickersScreen /> },
                   { path: 'books/:bookId', element: <BookScreen /> },
                 ],
               },
@@ -156,6 +160,18 @@ const router = createBrowserRouter([
           },
         ],
       },
+      ...(KitScreen
+        ? [
+            {
+              path: 'dev/kit',
+              element: (
+                <Loading>
+                  <KitScreen />
+                </Loading>
+              ),
+            },
+          ]
+        : []),
       { path: '*', element: <NotFound /> },
     ],
   },

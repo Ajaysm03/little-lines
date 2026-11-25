@@ -165,7 +165,7 @@ export function AdminBookUpload() {
       <Link to="/admin/books" className="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-full px-2 font-semibold text-ink hover:bg-frost">
         <ArrowLeft className="size-5" /> Books
       </Link>
-      <h1 className="mt-4 font-display text-title font-extrabold text-ink-deep">Upload a PDF</h1>
+      <h1 className="mt-4 font-display text-title font-semibold text-ink-deep">Upload a PDF</h1>
       <p className="mt-1 max-w-prose text-graphite">
         Pick which pages are covers and which are for coloring. Coloring pages become clean black lines. The book is
         saved as a draft that only you can see until you publish it.

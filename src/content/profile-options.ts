@@ -24,6 +24,11 @@ export const CRAYONS = [
   { id: 'grape', hex: '#8559D9', label: 'Grape' },
 ] as const
 
+/** The clay animal picture for an avatar (made by `npm run assets:scenes`), or null for unknown ids. */
+export function avatarImage(id: string): string | null {
+  return AVATARS.some((a) => a.id === id) ? `/avatars/${id}.webp` : null
+}
+
 export function avatarEmoji(id: string): string {
   return AVATARS.find((a) => a.id === id)?.emoji ?? '🎨'
 }

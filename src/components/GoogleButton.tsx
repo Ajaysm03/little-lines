@@ -28,7 +28,7 @@ export function GoogleButton({ onClick, busy, label = 'Continue with Google' }: 
       type="button"
       onClick={onClick}
       disabled={busy}
-      className="inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-full bg-white px-6 font-semibold text-[#1f1f1f] ring-2 ring-inset ring-mist transition-[box-shadow,transform] hover:ring-ink/30 active:scale-[0.98] disabled:opacity-60"
+      className="ll-clay ll-tone-white w-full"
     >
       {busy ? (
         <Spinner className="size-5" />
@@ -48,10 +48,10 @@ export function GoogleButton({ onClick, busy, label = 'Continue with Google' }: 
 /** A thin rule with "or" between Google and the email form. */
 export function OrDivider() {
   return (
-    <div className="my-6 flex items-center gap-4 text-[0.9375rem] text-graphite" aria-hidden>
-      <span className="h-0.5 flex-1 rounded bg-mist" />
+    <div className="my-6 flex items-center gap-4 font-display text-[1rem] font-semibold text-graphite" aria-hidden>
+      <span className="h-0 flex-1 border-t-[3px] border-dashed border-mist" />
       or
-      <span className="h-0.5 flex-1 rounded bg-mist" />
+      <span className="h-0 flex-1 border-t-[3px] border-dashed border-mist" />
     </div>
   )
 }

@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { GoogleButton, OrDivider, useAuthOptions } from '../components/GoogleButton'
-import { Button, FormError, TextField } from '../components/ui'
+import { ClayButton, ClayField, FormNote } from '../components/cozy'
 import { useTitle } from '../lib/useTitle'
 import { AuthError, useSession } from '../state/session-store'
 import { AuthLayout } from './AuthLayout'
 
-const linkClass = 'font-semibold text-ink underline decoration-sunflower decoration-[3px] underline-offset-4'
+const linkClass = 'font-semibold text-ink underline decoration-honey decoration-[3px] underline-offset-4'
 
 export function WelcomeScreen() {
   useTitle('Log in')
@@ -53,7 +53,7 @@ export function WelcomeScreen() {
 
   return (
     <AuthLayout>
-      <h1 className="font-display text-display font-extrabold text-ink-deep">Grab your crayons</h1>
+      <h1 className="font-display text-[2.25rem] leading-[1.05] font-semibold sm:text-[2.75rem] text-ink-deep">Grab your crayons</h1>
       <p className="mt-3 max-w-[34ch] text-graphite">Log in as the grown-up, then pick who’s coloring today.</p>
 
       {options?.google ? (
@@ -64,7 +64,7 @@ export function WelcomeScreen() {
       ) : null}
 
       <form onSubmit={onSubmit} className={options?.google ? 'flex flex-col gap-5' : 'mt-8 flex flex-col gap-5'} noValidate>
-        <TextField
+        <ClayField
           label="Email or username"
           type="text"
           autoComplete="username"
@@ -76,7 +76,7 @@ export function WelcomeScreen() {
           onChange={(e) => setEmail(e.target.value)}
         />
         <div className="flex flex-col gap-2">
-          <TextField
+          <ClayField
             label="Password"
             type="password"
             autoComplete="current-password"
@@ -87,10 +87,10 @@ export function WelcomeScreen() {
             Forgot password?
           </Link>
         </div>
-        <FormError>{error}</FormError>
-        <Button type="submit" size="lg" busy={busy === 'email'} disabled={busy !== null} className="mt-1">
+        <FormNote>{error}</FormNote>
+        <ClayButton type="submit" size="lg" busy={busy === 'email'} disabled={busy !== null} className="w-full mt-1">
           Log in
-        </Button>
+        </ClayButton>
       </form>
 
       <p className="mt-8 text-graphite">

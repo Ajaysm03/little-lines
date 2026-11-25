@@ -15,11 +15,19 @@ interface PinPadProps {
   onSubmit: (pin: string) => Promise<PinResult | void> | PinResult | void
   accent?: string
   className?: string
+  /** The heading level (1 when the PIN pad is the whole screen). */
+  headingLevel?: 1 | 2
+  /** Move focus to the heading when the PIN pad appears (it replaced other content). */
+  focusHeading?: boolean
 }
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'] as const
 
-export function PinPad({ title, subtitle, mode = 'verify', onSubmit, accent = 'var(--color-ink)', className }: PinPadProps) {
+export function PinPad({ title, subtitle, mode = 'verify', onSubmit, accent, className, headingLevel = 2, focusHeading }: PinPadProps) {
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  useEffect(() => {
+    if (focusHeading) headingRef.current?.focus()
+  }, [focusHeading])
   const [pin, setPin] = useState('')
   const [first, setFirst] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -83,32 +91,28 @@ export function PinPad({ title, subtitle, mode = 'verify', onSubmit, accent = 'v
   }, [press])
 
   const heading = mode === 'create' && first !== null ? 'Enter the same PIN again' : title
+  const Heading = headingLevel === 1 ? 'h1' : 'h2'
 
   return (
     <div className={cn('flex flex-col items-center text-center', className)}>
-      <h2 className="font-display text-heading font-bold text-ink-deep">{heading}</h2>
+      <Heading ref={headingRef} tabIndex={-1} className="font-display text-title font-semibold text-ink outline-none">
+        {heading}
+      </Heading>
       {subtitle && !(mode === 'create' && first !== null) ? (
         <p className="mt-1 max-w-xs text-graphite">{subtitle}</p>
       ) : null}
 
       <div key={shakeKey} className={cn('mt-6 flex gap-4', shakeKey > 0 && 'animate-shake')} aria-hidden>
         {[0, 1, 2, 3].map((i) => (
-          <span
-            key={i}
-            className="size-4 rounded-full ring-2 ring-inset transition-colors"
-            style={{
-              backgroundColor: i < pin.length ? accent : 'transparent',
-              ['--tw-ring-color' as string]: i < pin.length ? accent : 'var(--color-mist)',
-            }}
-          />
+          <span key={i} className={cn('ll-pin-dot', i < pin.length && 'll-pin-dot-on')} style={i < pin.length && accent ? { background: accent } : undefined} />
         ))}
       </div>
       <p role="status" aria-live="polite" className="mt-3 min-h-6 text-[0.9375rem] text-error">
-        {message ?? (busy ? <span className="text-graphite">Checking…</span> : null)}
+        {message ?? (busy ? <span className="text-graphite">Checking…</span> : mode === 'create' && first !== null ? <span className="sr-only">Now enter the same PIN again.</span> : null)}
       </p>
       <span className="sr-only">{`${pin.length} of 4 digits entered`}</span>
 
-      <div className="mt-2 grid grid-cols-3 gap-3">
+      <div className="mt-3 grid grid-cols-3 gap-x-6 gap-y-4">
         {KEYS.map((key) =>
           key === '' ? (
             <span key="spacer" />
@@ -117,14 +121,12 @@ export function PinPad({ title, subtitle, mode = 'verify', onSubmit, accent = 'v
               key={key}
               type="button"
               onClick={() => press(key)}
-              disabled={busy}
+              aria-disabled={busy || undefined}
               aria-label={key === 'back' ? 'Delete last digit' : key}
-              className={cn(
-                'grid size-18 place-items-center rounded-full font-display text-[1.75rem] font-bold text-ink-deep transition-transform active:scale-90',
-                key === 'back' ? 'text-graphite hover:bg-frost' : 'bg-paper shadow-lift hover:bg-frost',
-              )}
+              className="ll-clay ll-tone-cream ll-clay-round text-[2rem]"
+              style={{ ['--d' as string]: '76px' }}
             >
-              {key === 'back' ? <Delete className="size-7" strokeWidth={2.2} /> : key}
+              {key === 'back' ? <Delete className="size-7" strokeWidth={2.2} aria-hidden /> : key}
             </button>
           ),
         )}

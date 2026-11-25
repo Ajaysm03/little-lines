@@ -1,4 +1,5 @@
 import bundled from './generated/books.json'
+import type { Season } from './scenes'
 
 export type PageKind = 'front-cover' | 'line-art' | 'back-cover'
 
@@ -33,6 +34,8 @@ export interface Book {
   /** When the owner published it; books published in the last 14 days are "New". */
   publishedAt?: number | null
   category?: string
+  /** Which set of scenes the book's screens use (falls back to winter until a set exists). */
+  season?: Season
   pageSize: { width: number; height: number }
   cover: string
   coverThumb: string

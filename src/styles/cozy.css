@@ -1,0 +1,671 @@
+/*
+ * Cozy redesign: clay buttons, paper cards, tape and friends.
+ * Ported from the design canvas (project/clay.css). Every class is prefixed ll- so nothing clashes
+ * with Tailwind utilities. Components in src/components/cozy wrap these; screens use the components.
+ *
+ * Accent colors come from the open book: --acc (button color), --acc-dk (its clay lip),
+ * --on-acc (text on it). Set them with accentStyle() from src/lib/accent.ts.
+ */
+
+:root {
+  --ll-paper: #fbf5e8;
+  --ll-paper-2: #f3e8d3;
+  --ll-ink: #3e2a1e;
+  --ll-ink-soft: #6b5444;
+  --ll-honey: #edb94e;
+  --ll-honey-dk: #b9832a;
+  --ll-cran: #b7334b;
+  --ll-cran-dk: #86203a;
+  --ll-pine: #2f7d4e;
+  --ll-pine-dk: #1e5836;
+  --ll-gold: #e2ae45;
+  --ll-gold-dk: #a67a1f;
+  --ll-sky: #3f78b8;
+  --ll-sky-dk: #2a5689;
+  --ll-navy: #3a3f6e;
+  --ll-navy-dk: #262a4f;
+  --acc: var(--ll-cran);
+  --acc-dk: var(--ll-cran-dk);
+  --on-acc: #ffffff;
+}
+
+/* ---------- Paper ---------- */
+.ll-paper {
+  position: relative;
+  box-sizing: border-box;
+  background-color: var(--ll-paper);
+  background-image:
+    radial-gradient(rgb(140 105 60 / 0.07) 1px, transparent 1.4px),
+    linear-gradient(180deg, rgb(255 255 255 / 0.55), rgb(255 255 255 / 0) 40%);
+  background-size: 7px 7px, 100% 100%;
+  border-radius: 18px;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.8),
+    0 2px 0 rgb(120 90 50 / 0.08),
+    0 8px 14px -8px rgb(60 35 15 / 0.28),
+    0 26px 44px -22px rgb(60 35 15 / 0.6);
+}
+.ll-paper-flat { border-radius: 6px; }
+
+/* ---------- Washi tape ---------- */
+.ll-tape {
+  position: absolute;
+  z-index: 3;
+  width: 150px;
+  height: 40px;
+  opacity: 0.92;
+  pointer-events: none;
+  background-color: #f2c4b3;
+  background-image: radial-gradient(rgb(255 255 255 / 0.65) 1.6px, transparent 2px);
+  background-size: 11px 11px;
+  box-shadow: 0 1px 3px rgb(80 50 20 / 0.2);
+  clip-path: polygon(2% 8%, 98% 0, 100% 48%, 97% 100%, 3% 92%, 0 52%);
+}
+.ll-tape-mint { background-color: #cfe3c6; }
+.ll-tape-kraft { background-color: #e7d2a5; background-image: none; opacity: 0.85; }
+.ll-tape-cran {
+  background-color: #c8475e;
+  background-image: repeating-linear-gradient(135deg, rgb(255 255 255 / 0.85) 0 4px, transparent 4px 14px);
+  background-size: auto;
+}
+.ll-tape-rainbow {
+  background-image: repeating-linear-gradient(135deg, #f2a27e 0 12px, #f6d47a 12px 24px, #a9d49a 24px 36px, #9cc7ee 36px 48px, #d6a9e8 48px 60px);
+  background-size: auto;
+}
+
+/* ---------- Clay buttons ---------- */
+.ll-clay {
+  --c: var(--acc);
+  --cd: var(--acc-dk);
+  --t: var(--on-acc);
+  position: relative;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+  min-height: 60px;
+  padding: 0 1.4em;
+  border: 0;
+  border-radius: 999px;
+  background: var(--c);
+  color: var(--t);
+  font: 600 1.5rem/1 var(--font-display);
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+  box-shadow:
+    inset 0 5px 3px rgb(255 255 255 / 0.3),
+    inset 0 -7px 7px rgb(0 0 0 / 0.14),
+    0 6px 0 var(--cd),
+    0 16px 22px -10px rgb(50 25 10 / 0.55);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+.ll-clay:hover { filter: brightness(1.06); }
+.ll-clay:active:not(:disabled):not([aria-disabled='true']) {
+  transform: translateY(5px);
+  box-shadow:
+    inset 0 5px 3px rgb(255 255 255 / 0.3),
+    inset 0 -4px 6px rgb(0 0 0 / 0.14),
+    0 1px 0 var(--cd),
+    0 6px 10px -6px rgb(50 25 10 / 0.5);
+}
+.ll-clay:disabled, .ll-clay[aria-disabled='true'] { opacity: 0.45; cursor: default; filter: saturate(0.6); }
+.ll-clay svg { flex: none; }
+.ll-clay-sm { min-height: 48px; padding: 0 1em; font-size: 1.25rem; }
+.ll-clay-lg { min-height: 76px; padding: 0 1.6em; font-size: 1.875rem; }
+.ll-clay-round { width: var(--d, 64px); height: var(--d, 64px); min-height: 0; padding: 0; border-radius: 50%; }
+
+.ll-tone-cran  { --c: var(--ll-cran);  --cd: var(--ll-cran-dk);  --t: #fff; }
+.ll-tone-pine  { --c: var(--ll-pine);  --cd: var(--ll-pine-dk);  --t: #fff; }
+.ll-tone-sky   { --c: var(--ll-sky);   --cd: var(--ll-sky-dk);   --t: #fff; }
+.ll-tone-navy  { --c: var(--ll-navy);  --cd: var(--ll-navy-dk);  --t: #fff; }
+.ll-tone-honey { --c: var(--ll-honey); --cd: var(--ll-honey-dk); --t: var(--ll-ink); }
+.ll-tone-gold  { --c: var(--ll-gold);  --cd: var(--ll-gold-dk);  --t: var(--ll-ink); }
+.ll-tone-cream { --c: #f6ebd6; --cd: #cdb68f; --t: var(--ll-ink); }
+.ll-tone-white { --c: #fffdf8; --cd: #d9c8ac; --t: var(--ll-ink); }
+
+/* ---------- Text field ---------- */
+.ll-field {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-height: 64px;
+  padding: 0 1.25em;
+  border: 0;
+  border-radius: 999px;
+  background: #efe4d0;
+  color: var(--ll-ink);
+  font: 600 1.25rem/1.2 var(--font-sans);
+  box-shadow: inset 0 3px 7px rgb(90 60 30 / 0.18), inset 0 -2px 0 rgb(255 255 255 / 0.75);
+}
+.ll-field::placeholder { color: #6f5a48; }
+.ll-field:focus { outline: none; box-shadow: inset 0 3px 7px rgb(90 60 30 / 0.18), 0 0 0 4px #2a5689; }
+.ll-field[aria-invalid='true'] { box-shadow: inset 0 3px 7px rgb(90 60 30 / 0.18), 0 0 0 3px #b8283f; }
+.ll-field[aria-invalid='true']:focus { box-shadow: inset 0 3px 7px rgb(90 60 30 / 0.18), 0 0 0 3px #b8283f, 0 0 0 7px #2a5689; }
+
+/* ---------- Chips and status stickers ---------- */
+.ll-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 1em;
+  border-radius: 999px;
+  background: var(--c);
+  color: var(--t);
+  font: 600 1.125rem/1 var(--font-display);
+  box-shadow: inset 0 3px 1px rgb(255 255 255 / 0.3), inset 0 -3px 4px rgb(0 0 0 / 0.12), 0 4px 0 var(--cd);
+}
+
+.ll-sticker {
+  display: inline-grid;
+  place-items: center;
+  width: var(--d, 64px);
+  height: var(--d, 64px);
+  border-radius: 50%;
+  background: var(--s, var(--ll-cran));
+  color: #fff;
+  font: 700 calc(var(--d, 64px) * 0.3) / 1 var(--font-display);
+  box-shadow: 0 0 0 calc(var(--d, 64px) * 0.07) #fffdf8, 0 8px 12px -4px rgb(60 30 10 / 0.5);
+  transform: rotate(-10deg);
+}
+.ll-sticker-done { --s: var(--ll-pine); }
+.ll-sticker-progress { --s: var(--ll-sky); }
+.ll-sticker-new { --s: var(--ll-cran); }
+
+/* ---------- Words painted on scene signposts ---------- */
+.ll-sign {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  border-radius: 8px;
+  color: #fff4e2;
+  font: 600 21px/1 var(--font-display);
+  text-decoration: none;
+  text-shadow: 0 1px 0 rgb(50 25 10 / 0.9), 0 0 3px rgb(50 25 10 / 0.85), 0 0 8px rgb(50 25 10 / 0.6);
+  transition: transform 0.15s ease;
+}
+.ll-sign:hover { transform: scale(1.07); color: #fff; }
+
+/* ---------- Magnets ---------- */
+.ll-magnet {
+  display: block;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--m, var(--ll-cran));
+  box-shadow: inset 0 4px 2px rgb(255 255 255 / 0.35), inset 0 -4px 4px rgb(0 0 0 / 0.18), 0 4px 6px -2px rgb(60 30 10 / 0.5);
+}
+
+/* ---------- Progress drawn like a crayon line ---------- */
+.ll-crayon-track {
+  position: relative;
+  height: 18px;
+  border-radius: 999px;
+  background: #eadcc4;
+  box-shadow: inset 0 2px 4px rgb(90 60 30 / 0.2);
+  overflow: hidden;
+}
+.ll-crayon-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: repeating-linear-gradient(115deg, rgb(255 255 255 / 0.28) 0 3px, transparent 3px 9px), var(--f, var(--ll-gold));
+}
+
+/* ---------- Toggle ---------- */
+.ll-toggle {
+  --on: var(--acc);
+  --on-dk: var(--acc-dk);
+  position: relative;
+  flex: none;
+  width: 104px;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #eadbc4;
+  cursor: pointer;
+  box-shadow: inset 0 3px 7px rgb(60 35 15 / 0.28), 0 3px 0 rgb(255 255 255 / 0.5);
+}
+.ll-toggle-knob {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #fffdf8;
+  color: #a89580;
+  box-shadow: inset 0 4px 2px rgb(255 255 255 / 0.4), inset 0 -5px 5px rgb(0 0 0 / 0.12), 0 4px 0 #cdb68f;
+  transition: left 0.2s ease, background 0.2s ease;
+}
+.ll-toggle[aria-pressed='true'] .ll-toggle-knob,
+.ll-toggle[aria-checked='true'] .ll-toggle-knob {
+  left: 54px;
+  background: var(--on);
+  color: #fff;
+  box-shadow: inset 0 4px 2px rgb(255 255 255 / 0.3), inset 0 -5px 5px rgb(0 0 0 / 0.14), 0 4px 0 var(--on-dk);
+}
+
+/* ---------- PIN dots and keys ---------- */
+.ll-pin-dot { width: 40px; height: 40px; border-radius: 50%; background: #efe4d0; box-shadow: inset 0 3px 7px rgb(90 60 30 / 0.2); transition: background 0.15s ease; }
+.ll-pin-dot-on { background: var(--ll-honey); box-shadow: inset 0 4px 2px rgb(255 255 255 / 0.35), inset 0 -5px 5px rgb(0 0 0 / 0.12), 0 4px 0 var(--ll-honey-dk); }
+
+/* ---------- Falling snow ---------- */
+.ll-snow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(3px 3px at 12% 18%, rgb(255 255 255 / 0.95) 50%, transparent 52%),
+    radial-gradient(2px 2px at 64% 42%, rgb(255 255 255 / 0.9) 50%, transparent 52%),
+    radial-gradient(4px 4px at 38% 76%, rgb(255 255 255 / 0.85) 50%, transparent 52%),
+    radial-gradient(2.5px 2.5px at 86% 8%, rgb(255 255 255 / 0.9) 50%, transparent 52%);
+  background-size: 420px 420px, 310px 310px, 540px 540px, 260px 260px;
+  animation: ll-snowfall 18s linear infinite;
+}
+@keyframes ll-snowfall {
+  to { background-position: 30px 420px, -20px 310px, 40px 540px, -10px 260px; }
+}
+
+/* ---------- Scenes ---------- */
+.ll-scene { position: relative; overflow: hidden; background: #d9c3a0; }
+.ll-scene-stage { position: absolute; background-position: center; background-size: cover; background-repeat: no-repeat; }
+.ll-scene-pins { position: absolute; left: 0; top: 0; width: 1366px; height: 1024px; transform-origin: 0 0; }
+.ll-scene-pins > * { position: absolute; }
+.ll-scene-band { position: relative; overflow: hidden; background-position: center; background-size: cover; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ll-snow { animation: none; }
+  .ll-clay, .ll-toggle-knob, .ll-sign { transition: none; }
+}
+
+/* ---------- Name tags on the coat hooks (Who's coloring today?) ---------- */
+.ll-who {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ll-ink);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transform: rotate(var(--r, 0deg));
+  transform-origin: 50% 8px;
+  transition: transform 0.25s ease;
+}
+.ll-who:hover,
+.ll-who:focus-visible { transform: translateY(-4px); }
+.ll-who-knot {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin-bottom: -8px;
+  border-radius: 50%;
+  background: #c79a6a;
+  box-shadow: inset 0 2px 1px rgb(255 255 255 / 0.4), 0 2px 3px rgb(60 30 10 / 0.4);
+}
+.ll-who-string {
+  display: block;
+  width: 4px;
+  height: var(--string, 46px);
+  border-radius: 2px;
+  background: linear-gradient(#7a4a2a, #b98a5e);
+}
+.ll-who-face { position: relative; display: block; }
+.ll-who-name {
+  max-width: 100%;
+  margin-top: 0.55em;
+  padding: 0.3em 0.85em;
+  overflow: hidden;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.05;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ll-who-lock {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  place-items: center;
+  width: 27%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--ll-navy);
+  color: #fff;
+  box-shadow: 0 0 0 5px #fffdf8;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ll-who { transition: none; }
+}
+
+/* ---------- Contained scenes: the whole picture, edges filled with a soft copy ---------- */
+.ll-scene-backdrop {
+  position: absolute;
+  inset: -40px;
+  background-position: center;
+  background-size: cover;
+  filter: blur(22px) saturate(1.05) brightness(0.92);
+}
+.ll-scene-stage-contained { overflow: hidden; box-shadow: 0 0 60px rgb(40 20 5 / 0.25); }
+
+/* ---------- Clay tab bar ---------- */
+.ll-tab-pin {
+  align-items: flex-start;
+  padding: 26px 0 0;
+  border-radius: 30px;
+  font-size: 31px;
+}
+.ll-tab-pin .ll-tab-icon { width: 36px; height: 36px; }
+.ll-tab-fixed {
+  flex: 1 1 0;
+  max-width: 9.5rem;
+  min-height: 0;
+  height: calc(5.25rem + env(safe-area-inset-bottom));
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 0.2rem;
+  padding: 0.7rem 0.25rem 0;
+  border-radius: 24px 24px 0 0;
+  font-size: 0.9375rem;
+  transform: translateY(0.9rem);
+}
+.ll-tab-fixed .ll-tab-icon { width: 1.6rem; height: 1.6rem; }
+.ll-tab-fixed.ll-tab-current { transform: translateY(0.25rem); }
+@media (min-width: 640px) {
+  .ll-tab-fixed { font-size: 1.0625rem; }
+}
+.ll-tab-fixed:active:not(:disabled) { transform: translateY(1.2rem); }
+.ll-tab-fixed.ll-tab-current:active:not(:disabled) { transform: translateY(0.55rem); }
+
+/* ---------- Paper pages (fence, shelves, desk edge) ---------- */
+.ll-page-card {
+  position: relative;
+  box-sizing: border-box;
+  padding: 7px;
+  color: inherit;
+  text-decoration: none;
+  transform: rotate(var(--r, 0deg));
+  transition: transform 0.2s ease;
+}
+.ll-page-card:hover,
+.ll-page-card:focus-visible { transform: rotate(0deg) translateY(-6px); }
+@media (prefers-reduced-motion: reduce) {
+  .ll-page-card { transition: none; }
+}
+
+/* ---------- Bookshop shelves ---------- */
+.ll-strip { scrollbar-width: thin; scrollbar-color: rgb(110 70 35 / 0.5) transparent; overscroll-behavior-x: contain; }
+.ll-shelf-label {
+  display: inline-grid;
+  place-items: center;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 4px;
+  background: #f6ebd6;
+  font: 700 17px/32px var(--font-sans);
+  color: var(--ll-ink);
+  box-shadow: 0 2px 3px rgb(60 30 10 / 0.35);
+}
+.ll-ghost-book {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: 154px;
+  height: 218px;
+  border: 4px dashed rgb(255 244 226 / 0.75);
+  border-radius: 6px;
+  background: rgb(60 30 10 / 0.55);
+  color: #fff4e2;
+  font: 600 21px/1.15 var(--font-display);
+  text-align: center;
+  text-shadow: 0 1px 0 rgb(60 30 10 / 0.6);
+}
+.ll-scene-heading { color: #fff8ec; text-shadow: 0 2px 0 rgb(60 30 10 / 0.55), 0 6px 14px rgb(40 20 5 / 0.5); }
+
+/* ---------- Reader on the desk ---------- */
+.ll-pill {
+  display: grid;
+  place-items: center;
+  height: 3.5rem;
+  padding: 0 1.75rem;
+  border-radius: 999px;
+  background: #f6ebd6;
+  color: #5a4434;
+  font: 600 1.5rem/1 var(--font-display);
+  white-space: nowrap;
+  box-shadow: inset 0 4px 2px rgb(255 255 255 / 0.45), inset 0 -5px 6px rgb(0 0 0 / 0.1), 0 5px 0 #cdb68f, 0 14px 20px -10px rgb(50 25 10 / 0.5);
+}
+.ll-fire-glow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(circle at 6% 2%, rgb(255 186 92 / 0.38), rgb(255 186 92 / 0) 42%);
+}
+
+/* ---------- The fridge (My art) ---------- */
+.ll-fridge-art {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  padding: 9px;
+  border: 0;
+  border-radius: 4px;
+  background: #fffdf8;
+  cursor: pointer;
+  box-shadow: 0 2px 0 rgb(0 0 0 / 0.06), 8px 12px 18px -8px rgb(60 35 15 / 0.55);
+  transform: rotate(var(--r, 0deg));
+  transition: transform 0.2s ease;
+}
+.ll-fridge-art:hover,
+.ll-fridge-art:focus-visible { transform: rotate(0deg) scale(1.03); }
+.ll-fridge-empty {
+  position: relative;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border: 4px dashed #c9af88;
+  border-radius: 8px;
+  background: rgb(255 253 248 / 0.55);
+  text-align: center;
+  text-decoration: none;
+}
+.ll-sticker-disc {
+  display: grid;
+  place-items: center;
+  width: var(--d, 84px);
+  height: var(--d, 84px);
+  border-radius: 50%;
+  background: var(--s, var(--ll-cran));
+  font-size: calc(var(--d, 84px) * 0.46);
+  line-height: 1;
+  box-shadow: inset 0 5px 3px rgb(255 255 255 / 0.3), inset 0 -6px 6px rgb(0 0 0 / 0.15), 0 0 0 calc(var(--d, 84px) * 0.06) #fffdf8, 0 10px 14px -6px rgb(60 30 10 / 0.5);
+}
+.ll-sticker-disc-locked {
+  box-sizing: border-box;
+  background: #efe4d0;
+  border: 4px dashed #c9af88;
+  box-shadow: none;
+  filter: grayscale(1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ll-fridge-art { transition: none; }
+}
+
+/* ---------- Sticker album ---------- */
+.ll-album {
+  border-radius: 14px;
+  background: linear-gradient(180deg, #3f78b8, #2a5689);
+  box-shadow: 0 34px 44px -22px rgb(40 20 5 / 0.65), 0 12px 16px -10px rgb(40 20 5 / 0.45);
+}
+.ll-album-leaves { position: absolute; inset: 12px 14px 16px 14px; display: flex; }
+.ll-album-leaf { position: relative; box-sizing: border-box; flex: 1 1 0; background: #fbf6ec; }
+.ll-album-leaf-l {
+  border-radius: 8px 2px 2px 8px;
+  box-shadow: -2px 0 0 #efe6d6, -4px 0 0 #e2d6c0, -6px 0 0 #efe6d6, -8px 0 0 #dccfb7, inset -46px 0 50px -40px rgb(60 35 15 / 0.55);
+}
+.ll-album-leaf-r {
+  border-radius: 2px 8px 8px 2px;
+  box-shadow: 2px 0 0 #efe6d6, 4px 0 0 #e2d6c0, 6px 0 0 #efe6d6, 8px 0 0 #dccfb7, inset 46px 0 50px -40px rgb(60 35 15 / 0.55);
+}
+.ll-album-gutter {
+  position: absolute;
+  top: 12px;
+  bottom: 16px;
+  left: 50%;
+  width: 56px;
+  margin-left: -28px;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgb(60 35 15 / 0), rgb(60 35 15 / 0.22) 42%, rgb(60 35 15 / 0.34) 50%, rgb(60 35 15 / 0.22) 58%, rgb(60 35 15 / 0));
+}
+.ll-sticker-pick .ll-sticker-pop { transition: transform 0.15s ease; }
+.ll-sticker-pick:hover .ll-sticker-pop { transform: scale(1.06) rotate(-4deg); }
+@media (prefers-reduced-motion: reduce) {
+  .ll-sticker-pick .ll-sticker-pop { transition: none; }
+}
+
+/* ---------- Coloring studio ---------- */
+.ll-float { box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.8), 0 10px 22px -10px rgb(50 25 10 / 0.55), 0 2px 0 rgb(120 90 50 / 0.1); }
+.ll-studio-pill { box-sizing: border-box; border-radius: 999px; background: rgb(251 245 232 / 0.96); }
+.ll-ph { font: 600 22px/1 var(--font-display); color: var(--ll-ink); }
+.ll-rack {
+  position: absolute;
+  top: 0;
+  width: 64px;
+  height: 690px;
+  pointer-events: none;
+  border-radius: 24px;
+  background: linear-gradient(90deg, #cf9a69, #b07646 55%, #8e5a33);
+  box-shadow: inset 0 3px 2px rgb(255 255 255 / 0.3), inset 0 -6px 8px rgb(0 0 0 / 0.18), 0 14px 24px -10px rgb(40 20 5 / 0.6);
+}
+.ll-tool { display: flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.ll-tool .ll-tool-art { display: block; flex: none; filter: drop-shadow(0 6px 5px rgb(50 25 10 / 0.42)); transition: transform 0.22s cubic-bezier(0.2, 1.2, 0.4, 1); }
+.ll-tool:hover .ll-tool-art { filter: drop-shadow(0 9px 7px rgb(50 25 10 / 0.45)); }
+.ll-tool-label {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgb(255 250 240 / 0.94);
+  font: 600 21px/1 var(--font-display);
+  color: var(--ll-ink);
+  white-space: nowrap;
+  box-shadow: 0 3px 6px -2px rgb(50 25 10 / 0.4);
+  transition: transform 0.2s ease;
+}
+.ll-tool-v { position: absolute; z-index: 1; height: 78px; }
+.ll-tool-v .ll-tool-art { width: 220px; height: 70px; margin-left: 20px; }
+.ll-tool-v.ll-tool-on .ll-tool-art { transform: translateX(34px); }
+.ll-tool-v.ll-tool-on .ll-tool-label { transform: translateX(34px) scale(1.08); }
+.ll-tool-v.ll-tool-mirror { flex-direction: row-reverse; }
+.ll-tool-v.ll-tool-mirror .ll-tool-art { margin-left: 0; margin-right: 20px; transform: scaleX(-1); }
+.ll-tool-v.ll-tool-mirror.ll-tool-on .ll-tool-art { transform: scaleX(-1) translateX(34px); }
+.ll-tool-v.ll-tool-mirror.ll-tool-on .ll-tool-label { transform: translateX(-34px) scale(1.08); }
+.ll-tool-h { flex: none; flex-direction: column; gap: 4px; width: 5.25rem; padding-top: 0.6rem; }
+.ll-tool-h .ll-tool-art { width: 5rem; height: auto; }
+.ll-tool-h.ll-tool-on .ll-tool-art { transform: translateY(-6px) scale(1.08); }
+.ll-tool-h .ll-tool-label { padding: 3px 8px; font-size: 0.8125rem; }
+.ll-ctl {
+  display: grid;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #f6ebd6;
+  cursor: ew-resize;
+  touch-action: none;
+  box-shadow: inset 0 5px 3px rgb(255 255 255 / 0.55), inset 0 -6px 7px rgb(0 0 0 / 0.1), 0 6px 0 #cdb68f, 0 14px 20px -8px rgb(50 25 10 / 0.5);
+}
+.ll-ctl[aria-disabled='true'] { opacity: 0.45; cursor: default; }
+.ll-ctl-hint {
+  padding: 0.35em 0.8em;
+  border-radius: 14px;
+  background: rgb(251 245 232 / 0.94);
+  color: var(--ll-ink);
+  font: 600 20px/1.1 var(--font-display);
+  white-space: nowrap;
+  box-shadow: 0 6px 14px -8px rgb(50 25 10 / 0.5);
+}
+.ll-pop {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 62px;
+  padding: 0 18px 0 22px;
+  border-radius: 999px;
+  background: rgb(251 245 232 / 0.97);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.8), 0 10px 22px -10px rgb(50 25 10 / 0.55);
+}
+
+.ll-sw { width: 54px; height: 54px; flex: none; padding: 0; border: 0; border-radius: 50%; cursor: pointer; box-shadow: inset 0 5px 3px rgb(255 255 255 / 0.35), inset 0 -6px 6px rgb(0 0 0 / 0.18), 0 4px 0 rgb(60 30 10 / 0.25); }
+.ll-sw-sm { width: 42px; height: 42px; }
+.ll-sw-light { box-shadow: inset 0 0 0 2px #e2d3ba, inset 0 -6px 6px rgb(0 0 0 / 0.1), 0 4px 0 rgb(60 30 10 / 0.2); }
+.ll-sw-on { box-shadow: 0 0 0 4px #fffdf8, 0 0 0 8px var(--ll-ink), inset 0 5px 3px rgb(255 255 255 / 0.35); }
+.ll-colors-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 82px;
+  height: 340px;
+  padding: 0;
+  border: 0;
+  border-radius: 28px 0 0 28px;
+  cursor: pointer;
+  background: linear-gradient(90deg, #eadbc0, #d9c29c);
+  box-shadow: inset 0 3px 2px rgb(255 255 255 / 0.5), 0 12px 22px -10px rgb(50 25 10 / 0.6);
+}
+.ll-colors-tab-mirror { border-radius: 0 28px 28px 0; }
+.ll-tab-disc { display: block; flex: none; border-radius: 50%; box-shadow: inset 0 3px 2px rgb(255 255 255 / 0.35), inset 0 -4px 4px rgb(0 0 0 / 0.18), 0 0 0 3px #fffdf8; }
+.ll-panel { transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1); }
+.ll-toggle-mini { width: 92px; height: 50px; }
+.ll-toggle-mini .ll-toggle-knob { width: 38px; height: 38px; top: 6px; left: 6px; }
+.ll-toggle-mini[aria-checked='true'] .ll-toggle-knob, .ll-toggle-mini[aria-pressed='true'] .ll-toggle-knob { left: 48px; }
+@media (prefers-reduced-motion: reduce) {
+  .ll-tool .ll-tool-art, .ll-tool-label, .ll-panel { transition: none; }
+}
+.ll-rise { animation: ll-rise 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; }
+@keyframes ll-rise { from { transform: translateY(40px) scale(0.96); opacity: 0; } to { transform: none; opacity: 1; } }
+.ll-pop-in { animation: ll-pop-in 0.5s 0.35s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+@keyframes ll-pop-in { from { transform: scale(0) rotate(-30deg); } to { transform: scale(1) rotate(-8deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .ll-rise, .ll-pop-in { animation: none; }
+}
+
+/* ---------- Grown-ups ---------- */
+.ll-gh { font: 600 1.75rem/1.1 var(--font-display); color: var(--ll-ink); }
+
+/* ---------- Short screens (phones held sideways): slimmer tab bar ---------- */
+@media (max-height: 500px) {
+  .ll-tab-fixed {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    height: calc(3.25rem + env(safe-area-inset-bottom));
+    padding: 0 0.5rem env(safe-area-inset-bottom);
+    border-radius: 20px 20px 0 0;
+    transform: translateY(0.35rem);
+    max-width: 11rem;
+  }
+  .ll-tab-fixed .ll-tab-icon { width: 1.35rem; height: 1.35rem; }
+  .ll-tab-fixed.ll-tab-current { transform: translateY(0); }
+  .ll-tab-fixed:active:not(:disabled) { transform: translateY(0.6rem); }
+  .ll-tab-fixed.ll-tab-current:active:not(:disabled) { transform: translateY(0.25rem); }
+}
+
+/* Keep the focused control clear of the fixed tab bar when the page scrolls to it. */
+html:has(.ll-tab-fixed) { scroll-padding-bottom: calc(6.5rem + env(safe-area-inset-bottom)); }
+.ll-tool-v { pointer-events: auto; }

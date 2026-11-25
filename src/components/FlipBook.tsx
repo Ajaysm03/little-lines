@@ -252,6 +252,7 @@ function turnBack(book: PageFlip) {
 function buildPage(page: FlipPage, open: () => void): HTMLElement {
   const el = document.createElement('div')
   el.className = `flip-page flip-page--${page.kind}`
+  el.setAttribute('role', 'img')
   el.setAttribute('aria-label', page.title)
 
   if (page.kind !== 'line-art') {

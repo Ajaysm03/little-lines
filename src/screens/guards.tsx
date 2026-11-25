@@ -1,10 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router'
 import { PinPad } from '../components/PinPad'
-import { Button, Spinner } from '../components/ui'
+import { Lock } from 'lucide-react'
+import { PaperCard, Tape } from '../components/cozy'
+import { GrownupsFrame } from '../components/cozy/GrownupsFrame'
+import { Spinner } from '../components/ui'
 import { isParentUnlocked, useSession } from '../state/session-store'
 import { useProfiles } from '../state/hooks'
 import { useLibrary } from '../state/library-store'
+import { useTitle } from '../lib/useTitle'
 
 /** Restores the saved session once, then renders the app. */
 export function Root() {
@@ -77,6 +81,8 @@ export function RequireProfile() {
  * few minutes. `openWhenNoProfiles` lets a brand-new family add its first child.
  */
 export function ParentGate({ children, openWhenNoProfiles }: { children: ReactNode; openWhenNoProfiles?: boolean }) {
+  const unlockedNow = useSession(isParentUnlocked)
+  useTitle(unlockedNow ? undefined : 'Grown-ups only')
   const unlocked = useSession(isParentUnlocked)
   const unlockParent = useSession((s) => s.unlockParent)
   const profiles = useProfiles()
@@ -88,24 +94,58 @@ export function ParentGate({ children, openWhenNoProfiles }: { children: ReactNo
     return () => clearInterval(t)
   }, [])
 
-  if (unlocked) return <>{children}</>
+  if (unlocked) return <KeepUnlocked>{children}</KeepUnlocked>
   if (openWhenNoProfiles) {
     if (profiles === undefined) return <Splash />
     if (profiles.length === 0) return <>{children}</>
   }
 
   return (
-    <div className="grid min-h-dvh place-items-center px-4 py-10">
-      <div className="flex w-full max-w-sm flex-col items-center">
-        <PinPad
-          title="Grown-ups only"
-          subtitle="Enter your parent PIN to continue."
-          onSubmit={(pin) => unlockParent(pin)}
-        />
-        <Button variant="ghost" className="mt-6" onClick={() => navigate(-1)}>
-          Go back
-        </Button>
+    <GrownupsFrame back={{ label: 'Back to coloring', onClick: () => navigate(-1) }} width="max-w-[34rem]" center>
+      <div className="relative mx-auto w-full max-w-[31rem]">
+        <Tape variant="kraft" className="-top-3 left-1/2 -translate-x-1/2 -rotate-2" />
+        <PaperCard className="flex flex-col items-center px-6 pt-10 pb-8 text-center sm:px-12">
+          <span className="grid size-[5.75rem] place-items-center rounded-full bg-[var(--ll-navy)] text-white shadow-[inset_0_6px_3px_rgb(255_255_255/0.25),inset_0_-7px_7px_rgb(0_0_0/0.2),0_6px_0_var(--ll-navy-dk)]">
+            <Lock className="size-10" strokeWidth={2.4} aria-hidden />
+          </span>
+          <div className="mt-4 w-full">
+            <PinPad
+              title="Grown-ups only"
+              headingLevel={1}
+              subtitle="Enter your parent PIN to continue."
+              accent="var(--ll-navy)"
+              onSubmit={(pin) => unlockParent(pin)}
+            />
+          </div>
+          <p className="mt-8 text-[1.0625rem] leading-snug font-bold text-graphite">
+            Forgot it? Sign out and use “Forgot password” to reset your account.
+          </p>
+        </PaperCard>
       </div>
-    </div>
+    </GrownupsFrame>
   )
+}
+
+/**
+ * While a grown-up is using these screens, keep them unlocked: any tap or key pushes the 10-minute
+ * lock back, so a form isn't thrown away mid-edit. It still locks after 10 quiet minutes.
+ */
+function KeepUnlocked({ children }: { children: ReactNode }) {
+  const extend = useSession((s) => s.extendParent)
+  useEffect(() => {
+    let last = 0
+    const onUse = () => {
+      const now = Date.now()
+      if (now - last < 20_000) return
+      last = now
+      extend()
+    }
+    window.addEventListener('pointerdown', onUse)
+    window.addEventListener('keydown', onUse)
+    return () => {
+      window.removeEventListener('pointerdown', onUse)
+      window.removeEventListener('keydown', onUse)
+    }
+  }, [extend])
+  return <>{children}</>
 }

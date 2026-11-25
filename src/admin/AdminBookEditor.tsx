@@ -139,7 +139,7 @@ function BundledBook({ book, settings, onChange }: { book: Book; settings: Catal
 function EditorHeading({ title, status, tier, bundled, isNew }: { title: string; status: CatalogBook['status']; tier: CatalogTier; bundled?: boolean; isNew?: boolean }) {
   return (
     <div className="mt-4">
-      <h1 className="font-display text-title font-extrabold text-ink-deep">{title}</h1>
+      <h1 className="font-display text-title font-semibold text-ink-deep">{title}</h1>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <StatusChip status={status} bundled={bundled} />
         <TierChip tier={tier} />

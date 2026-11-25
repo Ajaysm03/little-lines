@@ -46,8 +46,8 @@ function apiDevServer(): Plugin {
           name: 'Little Lines',
           short_name: 'Little Lines',
           description: 'Coloring books for the whole family, with crayons, glitter and a real page-turning book.',
-          theme_color: '#2B2F6B',
-          background_color: '#F3F5FA',
+          theme_color: '#4A2C1A',
+          background_color: '#F6EEDF',
           display: 'standalone',
           orientation: 'any',
           start_url: '/',
@@ -59,11 +59,11 @@ function apiDevServer(): Plugin {
           ],
         },
         workbox: {
-          // The app, its fonts and every bundled book page, so coloring works with no internet.
+          // The app, its fonts, every bundled book page and the 1200 px scene pictures, so coloring works with no internet.
           globPatterns: ['**/*.{js,mjs,css,html,svg,png,webp,woff2,mp3}'],
           // PDF import and the owner console (owner only, online anyway) and rarely used font subsets
           // still load online; leaving them out keeps the offline cache small on tablets.
-          globIgnores: ['**/pdf*.{js,mjs}', '**/ImportScreen-*.js', '**/{Admin*,OverviewScreen,AuditScreen,BookChips,BookDetailsFields,format}-*.js', '**/*-cyrillic*.woff2', '**/*-vietnamese*.woff2', '**/*-greek*.woff2'],
+          globIgnores: ['**/pdf*.{js,mjs}', '**/ImportScreen-*.js', '**/{Admin*,OverviewScreen,AuditScreen,BookChips,BookDetailsFields,format}-*.js', '**/*-cyrillic*.woff2', '**/*-vietnamese*.woff2', '**/*-greek*.woff2', 'scenes/**/!(*-1200).webp'],
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
           navigateFallback: '/index.html',
           // Sign-in redirects (Google, password reset links) must reach the server, not the cached app.
@@ -72,6 +72,14 @@ function apiDevServer(): Plugin {
           // Pages of books the owner published. Their URLs include the book's version, so a cached
           // image never goes stale: an edited book gets new URLs. Kept so opened books work offline.
           runtimeCaching: [
+            // The sharp 2000 px scene pictures for big screens: cached the first time each one shows, and
+            // refreshed in the background so redrawn scenes reach devices. The 1200 px copies are in the
+            // offline cache, and screens fall back to them.
+            {
+              urlPattern: ({ url }) => url.pathname.startsWith('/scenes/'),
+              handler: 'StaleWhileRevalidate',
+              options: { cacheName: 'scenes', expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 365 } },
+            },
             {
               urlPattern: ({ url }) => url.pathname === '/api/catalog/image' && url.searchParams.has('v'),
               handler: 'CacheFirst',

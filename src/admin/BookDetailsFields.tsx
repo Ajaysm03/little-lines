@@ -1,6 +1,7 @@
 import { useId } from 'react'
 import { cn, TextField } from '../components/ui'
 import type { CatalogMeta } from '../data/api'
+import { SEASONS, SEASON_LABELS, type Season } from '../content/scenes'
 
 /** The same list the server accepts (server/catalog.ts). */
 export const CATEGORIES = ['Holidays', 'Animals', 'Nature', 'Fantasy', 'Vehicles', 'Everyday', 'Other']
@@ -13,12 +14,13 @@ export interface Details {
   ageRange: string
   /** Comma-separated in the form. */
   tags: string
+  season: Season
 }
 
-export const emptyDetails = (): Details => ({ title: '', subtitle: '', description: '', category: 'Other', ageRange: '', tags: '' })
+export const emptyDetails = (): Details => ({ title: '', subtitle: '', description: '', category: 'Other', ageRange: '', tags: '', season: 'winter' })
 
 export function detailsFromMeta(m: CatalogMeta): Details {
-  return { title: m.title, subtitle: m.subtitle, description: m.description, category: m.category, ageRange: m.ageRange, tags: m.tags.join(', ') }
+  return { title: m.title, subtitle: m.subtitle, description: m.description, category: m.category, ageRange: m.ageRange, tags: m.tags.join(', '), season: m.season ?? 'winter' }
 }
 
 export function metaFromDetails(d: Details, theme: CatalogMeta['theme'], pageSize: CatalogMeta['pageSize']): CatalogMeta {
@@ -33,6 +35,7 @@ export function metaFromDetails(d: Details, theme: CatalogMeta['theme'], pageSiz
       .map((t) => t.trim())
       .filter(Boolean)
       .map((t) => t[0].toUpperCase() + t.slice(1)),
+    season: d.season,
     theme,
     pageSize,
   }
@@ -83,6 +86,21 @@ export function BookDetailsFields({
             <option key={c}>{c}</option>
           ))}
         </select>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor={`${id}-season`} className="font-semibold text-ink-deep">
+          Season
+        </label>
+        <select id={`${id}-season`} aria-describedby={`${id}-season-hint`} value={value.season} disabled={disabled} onChange={(e) => set({ season: e.target.value as Season })} className={cn(fieldClass, 'min-h-13')}>
+          {SEASONS.map((s) => (
+            <option key={s} value={s}>
+              {SEASON_LABELS[s]}
+            </option>
+          ))}
+        </select>
+        <p id={`${id}-season-hint`} className="text-[0.9375rem] text-graphite">
+          Picks the scenes families see with this book. Only winter scenes exist so far; other seasons use them until theirs are made.
+        </p>
       </div>
       <TextField label="Best for ages" value={value.ageRange} disabled={disabled} maxLength={20} placeholder="4–8" onChange={(e) => set({ ageRange: e.target.value })} />
       <TextField

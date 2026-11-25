@@ -81,3 +81,16 @@ export function suggestColors(hex: string, harmony: Harmony): string[] {
       return [88, 74, 58, 42, 26].map((ll) => hslToHex(h, s, ll))
   }
 }
+
+/** A plain name for a color, for screen readers: "light blue", "dark red", "gray". */
+export function colorName(hex: string): string {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return 'color'
+  const [h, s, l] = hexToHsl(hex)
+  if (l >= 94) return 'white'
+  if (l <= 10) return 'black'
+  const shade = l >= 72 ? 'light ' : l <= 30 ? 'dark ' : ''
+  if (s < 12) return l >= 72 ? 'light gray' : l <= 30 ? 'dark gray' : 'gray'
+  const hue =
+    h < 12 || h >= 345 ? 'red' : h < 40 ? (l < 45 && s < 70 ? 'brown' : 'orange') : h < 65 ? 'yellow' : h < 165 ? 'green' : h < 195 ? 'teal' : h < 255 ? 'blue' : h < 290 ? 'purple' : 'pink'
+  return shade + hue
+}

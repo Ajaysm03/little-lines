@@ -72,6 +72,7 @@ export function catalogToBook(b: CatalogBook): Book | null {
     tier: b.tier,
     publishedAt: b.publishedAt,
     category: m.category,
+    season: m.season ?? 'winter',
   }
 }
 

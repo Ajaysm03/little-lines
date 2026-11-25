@@ -1,8 +1,8 @@
 import { ArrowLeft, Check, MailCheck } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, useEffect, useRef, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { PinPad } from '../components/PinPad'
-import { Button, ButtonLink, FormError, TextField } from '../components/ui'
+import { ClayButton, ClayField, ClayLink, FormNote } from '../components/cozy'
 import { MIN_PASSWORD_LENGTH } from '../data/accounts'
 import { authClient, authErrorMessage } from '../data/api'
 import { useTitle } from '../lib/useTitle'
@@ -46,31 +46,31 @@ export function ForgotPasswordScreen() {
     <AuthLayout>
       <BackToLogin />
       {sent ? (
-        <div role="status">
+        <div>
           <span className="grid size-12 place-items-center rounded-full bg-frost text-ink">
             <MailCheck className="size-6" />
           </span>
-          <h1 className="mt-4 font-display text-title font-extrabold text-ink-deep">Check your email</h1>
+          <FocusTitle className="mt-4 font-display text-title font-semibold text-ink-deep">Check your email</FocusTitle>
           <p className="mt-3 max-w-[38ch] text-graphite">
             If an account uses <span className="font-semibold text-ink-deep">{email.trim()}</span>, a link to choose a new
             password is on its way. It works for one hour. Check the spam folder if it doesn’t arrive in a few minutes.
           </p>
-          <Button variant="secondary" className="mt-6" onClick={() => setSent(false)}>
+          <ClayButton tone="cream" className="mt-6" onClick={() => setSent(false)}>
             Use a different email
-          </Button>
+          </ClayButton>
         </div>
       ) : (
         <>
-          <h1 className="font-display text-display font-extrabold text-ink-deep">Forgot your password?</h1>
+          <h1 className="font-display text-[2.25rem] leading-[1.05] font-semibold sm:text-[2.75rem] text-ink-deep">Forgot your password?</h1>
           <p className="mt-3 max-w-[36ch] text-graphite">
             Enter the email you use for Little Lines and we’ll send a link to choose a new password.
           </p>
           <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-5" noValidate>
-            <TextField label="Email" type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <FormError>{error}</FormError>
-            <Button type="submit" size="lg" busy={busy}>
+            <ClayField label="Email" type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <FormNote>{error}</FormNote>
+            <ClayButton type="submit" size="lg" busy={busy} className="w-full">
               Send reset link
-            </Button>
+            </ClayButton>
           </form>
           <p className="mt-6 max-w-[38ch] text-[0.9375rem] text-graphite">
             Signed up with Google? There’s no password to reset. Use “Continue with Google” on the log-in page.
@@ -111,13 +111,13 @@ export function ResetPasswordScreen() {
     return (
       <AuthLayout>
         <BackToLogin />
-        <h1 className="font-display text-title font-extrabold text-ink-deep">This link has expired</h1>
+        <h1 className="font-display text-title font-semibold text-ink-deep">This link has expired</h1>
         <p className="mt-3 max-w-[38ch] text-graphite">
           Reset links work once, for one hour. Ask for a new one and use the newest email.
         </p>
-        <ButtonLink to="/forgot-password" size="lg" className="mt-6">
+        <ClayLink to="/forgot-password" size="lg" className="mt-6">
           Send a new link
-        </ButtonLink>
+        </ClayLink>
       </AuthLayout>
     )
   }
@@ -125,23 +125,23 @@ export function ResetPasswordScreen() {
   return (
     <AuthLayout>
       {done ? (
-        <div role="status">
+        <div>
           <span className="grid size-12 place-items-center rounded-full bg-meadow-ink text-white">
             <Check className="size-6" strokeWidth={3} />
           </span>
-          <h1 className="mt-4 font-display text-title font-extrabold text-ink-deep">Password changed</h1>
+          <FocusTitle className="mt-4 font-display text-title font-semibold text-ink-deep">Password changed</FocusTitle>
           <p className="mt-3 max-w-[36ch] text-graphite">
             You’re signed out everywhere else. Log in with your new password.
           </p>
-          <ButtonLink to="/welcome" size="lg" className="mt-6">
+          <ClayLink to="/welcome" size="lg" className="mt-6">
             Log in
-          </ButtonLink>
+          </ClayLink>
         </div>
       ) : (
         <>
-          <h1 className="font-display text-display font-extrabold text-ink-deep">Choose a new password</h1>
+          <h1 className="font-display text-[2.25rem] leading-[1.05] font-semibold sm:text-[2.75rem] text-ink-deep">Choose a new password</h1>
           <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-5" noValidate>
-            <TextField
+            <ClayField
               label="New password"
               type="password"
               autoComplete="new-password"
@@ -150,7 +150,7 @@ export function ResetPasswordScreen() {
               error={errors.password}
               hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}
             />
-            <TextField
+            <ClayField
               label="Type it again"
               type="password"
               autoComplete="new-password"
@@ -158,10 +158,10 @@ export function ResetPasswordScreen() {
               onChange={(e) => setConfirm(e.target.value)}
               error={errors.confirm}
             />
-            <FormError>{errors.form}</FormError>
-            <Button type="submit" size="lg" busy={busy}>
+            <FormNote>{errors.form}</FormNote>
+            <ClayButton type="submit" size="lg" busy={busy} className="w-full">
               Save new password
-            </Button>
+            </ClayButton>
           </form>
         </>
       )}
@@ -180,11 +180,11 @@ export function SetupPinScreen() {
 
   return (
     <AuthLayout>
-      <h1 className="font-display text-title font-extrabold text-ink-deep">Welcome{account?.name ? `, ${account.name.split(' ')[0]}` : ''}!</h1>
+      <h1 className="font-display text-title font-semibold text-ink-deep">Welcome{account?.name ? `, ${account.name.split(' ')[0]}` : ''}!</h1>
       <p className="mt-2 max-w-[38ch] text-graphite">
         One last step: a 4-number parent PIN keeps the grown-ups area just for grown-ups.
       </p>
-      <div className="mt-6 w-full rounded-[28px] bg-paper px-6 py-8 shadow-paper">
+      <div className="mt-6 w-full rounded-[28px] bg-cream px-4 py-6 ring-2 ring-mist/70">
         <PinPad
           mode="create"
           title="Choose a parent PIN"
@@ -200,7 +200,7 @@ export function SetupPinScreen() {
         />
       </div>
       <div className="mt-4">
-        <FormError>{error}</FormError>
+        <FormNote>{error}</FormNote>
       </div>
       <button
         type="button"
@@ -213,5 +213,16 @@ export function SetupPinScreen() {
         Use a different account
       </button>
     </AuthLayout>
+  )
+}
+
+/** A heading for content that just replaced the form: it takes focus, so screen readers read it out. */
+function FocusTitle({ className, children }: { className?: string; children: ReactNode }) {
+  const ref = useRef<HTMLHeadingElement>(null)
+  useEffect(() => ref.current?.focus(), [])
+  return (
+    <h1 ref={ref} tabIndex={-1} className={`${className ?? ''} outline-none`}>
+      {children}
+    </h1>
   )
 }

@@ -1,20 +1,29 @@
-import { Download, Paintbrush, Palette, Star, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { ChevronLeft, ChevronRight, Download, Paintbrush, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import { Link, useLocation } from 'react-router'
-import { StickerBadge } from '../components/Sticker'
-import { ButtonLink, Spinner, cn } from '../components/ui'
+import { Link } from 'react-router'
+import { PagePreview } from '../components/BookCard'
+import { ClayButton, ClayLink, Magnet, PaperCard, StatusSticker } from '../components/cozy'
+import { pageLabel, pageState } from '../components/cozy/PageCards'
+import { rovingKeys } from '../components/cozy/roving'
+import { Scene, ScenePin, useSceneLayout } from '../components/cozy/Scene'
+import { TAB_BAR_SPACE, TabBar } from '../components/cozy/TabBar'
+import { Spinner, cn } from '../components/ui'
 import type { Book, BookPage } from '../content/books'
-import { CRAYONS } from '../content/profile-options'
+import type { StickerState } from '../data/achievements'
 import type { Artwork } from '../data/types'
 import { downloadPicture } from '../lib/export'
+import { useModal } from '../lib/useModal'
+import { useTitle } from '../lib/useTitle'
 import { useArtworkThumbs, useProfileInsights } from '../state/hooks'
 import { useBooks } from '../state/library-store'
-import { usePrefs } from '../state/prefs-store'
-import { useSession } from '../state/session-store'
-import { useTitle } from '../lib/useTitle'
 
-type Filter = 'all' | 'finished' | 'in-progress'
+type Filter = 'all' | 'done' | 'progress'
+const FILTERS: Array<{ id: Filter; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'done', label: 'Finished' },
+  { id: 'progress', label: 'Still coloring' },
+]
 
 interface Piece {
   art: Artwork
@@ -22,19 +31,33 @@ interface Piece {
   page: BookPage
 }
 
-/** Small, fixed tilts so the fridge looks hand-hung but doesn't reshuffle on every visit. */
-const TILTS = [-2.2, 1.4, -0.8, 2, -1.6, 0.9]
+interface FridgeData {
+  pieces: Piece[]
+  shown: Piece[]
+  filter: Filter
+  setFilter: (f: Filter) => void
+  thumbs: Map<string, string>
+  stickers: StickerState[]
+  open: (p: Piece) => void
+}
 
+const MAGNETS = ['var(--ll-cran)', 'var(--ll-pine)', 'var(--ll-sky)', 'var(--ll-honey)', '#8559d9']
+/** Three spots for pictures on the fridge door; the fourth holds the stickers. */
+const SPOTS = [
+  { x: 306, y: 196, tilt: -3 },
+  { x: 612, y: 206, tilt: 3 },
+  { x: 330, y: 520, tilt: -1 },
+]
+const PER_DOOR = SPOTS.length
+
+/** My art: pictures held on the fridge door with magnets, with the sticker collection stuck beside them. */
 export function GalleryScreen() {
-  const profileId = useSession((s) => s.profileId) ?? ''
   useTitle('My art')
   const insights = useProfileInsights()
   const thumbs = useArtworkThumbs(insights?.artworks)
-  const markSeen = usePrefs((s) => s.markStickersSeen)
-  const location = useLocation()
-  const [filter, setFilter] = useState<Filter>('all')
-  const [open, setOpen] = useState<Piece | null>(null)
   const books = useBooks()
+  const [filter, setFilter] = useState<Filter>('all')
+  const [viewing, setViewing] = useState<Piece | null>(null)
 
   const pieces = useMemo<Piece[]>(() => {
     const out: Piece[] = []
@@ -47,147 +70,239 @@ export function GalleryScreen() {
     return out.sort((a, b) => b.art.updatedAt - a.art.updatedAt)
   }, [insights?.artworks, books])
 
-  const shown = pieces.filter((p) =>
-    filter === 'all' ? true : filter === 'finished' ? Boolean(p.art.completedAt) : !p.art.completedAt,
-  )
-
-  // Opening the gallery counts as having seen any new stickers.
-  const earnedIds = insights?.stickers.filter((s) => s.earned).map((s) => s.id).join(',')
-  useEffect(() => {
-    if (profileId && earnedIds) markSeen(profileId, earnedIds.split(','))
-  }, [profileId, earnedIds, markSeen])
-
-  useEffect(() => {
-    if (location.hash === '#stickers' && insights) document.getElementById('stickers')?.scrollIntoView({ behavior: 'smooth' })
-  }, [location.hash, insights])
-
   if (!insights) {
     return (
-      <main className="grid min-h-[50dvh] place-items-center text-graphite">
-        <Spinner className="size-6" />
+      <main role="status" className="grid min-h-dvh place-items-center text-graphite">
+        <span className="flex items-center gap-3 font-bold">
+          <Spinner className="size-6" /> Opening your fridge…
+        </span>
       </main>
     )
   }
-  const earned = insights.stickers.filter((s) => s.earned).length
+
+  const shown = pieces.filter((p) => (filter === 'all' ? true : filter === 'done' ? Boolean(p.art.completedAt) : !p.art.completedAt))
+  const data: FridgeData = { pieces, shown, filter, setFilter, thumbs, stickers: insights.stickers, open: setViewing }
 
   return (
-    <main className="w-full max-w-6xl px-4 pt-6 pb-12 sm:px-8 md:pt-10 lg:px-12">
-      <h1 className="font-display text-title font-extrabold text-ink-deep">My art</h1>
+    <>
+      <Scene scene="myart" fit="contain" main className="h-dvh" pins={<FridgePins {...data} />}>
+        <FridgeStacked {...data} />
+      </Scene>
+      {viewing ? <PictureViewer piece={viewing} colorUrl={thumbs.get(`${viewing.book.id}:${viewing.page.id}`)} onClose={() => setViewing(null)} /> : null}
+    </>
+  )
+}
 
-      {pieces.length === 0 ? (
-        <div className="mt-10 flex max-w-lg flex-col items-start rounded-[28px] bg-paper px-6 py-8 shadow-paper sm:px-8">
-          <Palette className="size-10 text-[var(--crayon)]" />
-          <h2 className="mt-4 font-display text-heading font-bold text-ink-deep">Your fridge is waiting</h2>
-          <p className="mt-2 text-graphite">Every page you color gets hung up here, ready to show off.</p>
-          <ButtonLink to="/library" className="mt-6">
-            Pick a page to color
-          </ButtonLink>
-        </div>
-      ) : (
-        <>
-          <div role="radiogroup" aria-label="Show pictures" className="mt-6 flex flex-wrap gap-2">
-            {(
-              [
-                ['all', `All (${pieces.length})`],
-                ['finished', `Finished (${pieces.filter((p) => p.art.completedAt).length})`],
-                ['in-progress', `Still coloring (${pieces.filter((p) => !p.art.completedAt).length})`],
-              ] as Array<[Filter, string]>
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                role="radio"
-                aria-checked={filter === id}
-                onClick={() => setFilter(id)}
-                className={cn(
-                  'min-h-11 rounded-full px-4 text-[0.9375rem] font-semibold',
-                  filter === id ? 'bg-ink text-white' : 'bg-paper text-ink ring-2 ring-inset ring-mist hover:ring-ink/30',
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+function Picture({ piece, index, colorUrl, onOpen, className, style }: { piece: Piece; index: number; colorUrl?: string; onOpen: () => void; className?: string; style?: CSSProperties }) {
+  const state = pageState(piece.art)
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`${pageLabel(piece.page.title, state)}, open picture`}
+      className={cn('ll-fridge-art', className)}
+      style={style}
+    >
+      <PagePreview page={piece.page} colorUrl={colorUrl} className="rounded-[2px] [&>img]:object-top" />
+      <Magnet color={MAGNETS[index % MAGNETS.length]} className="absolute -top-4 left-1/2 -translate-x-1/2" />
+      <StatusSticker status={state.status === 'done' ? 'done' : 'progress'} size={54} className="!absolute -right-3.5 -bottom-3.5">
+        {state.sticker}
+      </StatusSticker>
+    </button>
+  )
+}
 
-          {/* The fridge door */}
-          <div
-            className="mt-6 rounded-[32px] px-4 pt-8 pb-6 sm:px-8"
-            style={{ background: 'linear-gradient(100deg, #f7f9fc 0%, #eef2f8 45%, #f8fafd 55%, #e9eef6 100%)', boxShadow: 'inset 0 0 0 2px #e3e8f1' }}
-          >
-            {shown.length === 0 ? (
-              <p className="py-10 text-center text-graphite">No pictures here yet.</p>
-            ) : (
-              <ul className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
-                {shown.map((p, i) => (
-                  <li key={p.art.id}>
-                    <button
-                      type="button"
-                      onClick={() => setOpen(p)}
-                      className="group relative block w-full text-left"
-                      style={{ transform: `rotate(${TILTS[i % TILTS.length]}deg)` }}
-                    >
-                      {/* Magnet */}
-                      <span
-                        aria-hidden
-                        className="absolute -top-3 left-1/2 z-10 size-7 -translate-x-1/2 rounded-full shadow-[0_3px_6px_-2px_rgb(0_0_0/0.45),inset_0_-3px_0_rgb(0_0_0/0.15),inset_0_3px_0_rgb(255_255_255/0.4)]"
-                        style={{ backgroundColor: CRAYONS[i % CRAYONS.length].hex }}
-                      />
-                      <span className="relative block aspect-[210/297] overflow-hidden bg-[#fffefb] shadow-[0_14px_24px_-14px_rgb(27_30_69/0.55)] transition-transform duration-200 group-hover:-translate-y-1 group-hover:rotate-1">
-                        {thumbs.get(`${p.book.id}:${p.page.id}`) ? (
-                          <img src={thumbs.get(`${p.book.id}:${p.page.id}`)} alt="" className="absolute inset-0 size-full" />
-                        ) : null}
-                        <img src={p.page.thumb} alt="" loading="lazy" className="absolute inset-0 size-full mix-blend-multiply" />
-                      </span>
-                      <span className="mt-3 block font-semibold text-ink-deep">{p.page.title}</span>
-                      <span className="flex items-center gap-1 text-[0.875rem] text-graphite">
-                        {p.art.completedAt ? (
-                          <>
-                            <Star className="size-4 fill-sunflower text-sunflower" /> Finished
-                          </>
-                        ) : (
-                          `${Math.round(p.art.progress * 100)}% colored`
-                        )}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </>
-      )}
+function EmptySpot({ linked, className, style }: { linked: boolean; className?: string; style?: CSSProperties }) {
+  const inner = (
+    <>
+      <p className="px-6 font-display text-[24px] leading-[1.2] font-semibold text-[#5a4434]">
+        {linked ? 'Color a page and it hangs here' : 'Finish a page and it hangs here'}
+      </p>
+      <Magnet color="#8559d9" className="absolute -top-[18px] left-1/2 -translate-x-1/2" />
+    </>
+  )
+  const cls = cn('ll-fridge-empty', className)
+  return linked ? (
+    <Link to="/library" className={cls} style={style}>
+      {inner}
+    </Link>
+  ) : (
+    <div className={cls} style={style}>
+      {inner}
+    </div>
+  )
+}
 
-      <section id="stickers" aria-labelledby="stickers-h" className="mt-14 scroll-mt-6">
-        <h2 id="stickers-h" className="font-display text-heading font-bold text-ink-deep">
-          Stickers
-        </h2>
-        <p className="mt-1 text-graphite">
-          {earned} of {insights.stickers.length} collected
-        </p>
-        <ul className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-4 lg:grid-cols-6">
-          {insights.stickers.map((s) => (
-            <li key={s.id} className="flex justify-center">
-              <StickerBadge sticker={s} />
-            </li>
-          ))}
-        </ul>
+function StickerSpot({ stickers, className }: { stickers: StickerState[]; className?: string }) {
+  const earned = stickers.filter((s) => s.earned)
+  const show = (earned.length ? earned.slice(-2) : stickers.slice(0, 2)).reverse()
+  return (
+    <Link to="/stickers" aria-label={`${earned.length} of ${stickers.length} stickers collected. Open the sticker album`} className={cn('group relative block text-ink-deep', className)}>
+      {show.map((s, i) => (
+        <span
+          key={s.id}
+          aria-hidden
+          className={cn('ll-sticker-disc absolute transition-transform group-hover:scale-105', !s.earned && 'll-sticker-disc-locked')}
+          style={{ left: i ? 112 : 6, top: i ? 30 : 4, ['--d' as string]: '84px', ['--s' as string]: s.color, transform: `rotate(${i ? 7 : -8}deg)` }}
+        >
+          {s.emoji}
+        </span>
+      ))}
+      <PaperCard flat tilt={-2} className="absolute top-[150px] left-[14px] px-[18px] py-3 font-display text-[22px] leading-[1.15] font-semibold whitespace-nowrap">
+        {earned.length} of {stickers.length} stickers →
+      </PaperCard>
+    </Link>
+  )
+}
+
+function FilterButtons({ d, big }: { d: FridgeData; big?: boolean }) {
+  return (
+    <div role="radiogroup" aria-label="Show pictures" onKeyDown={rovingKeys} className={big ? 'flex flex-col gap-4' : 'flex flex-wrap gap-2.5'}>
+      {FILTERS.map((f) => (
+        <ClayButton
+          key={f.id}
+          role="radio"
+          aria-checked={d.filter === f.id}
+          tabIndex={d.filter === f.id ? 0 : -1}
+          tone={d.filter === f.id ? 'pine' : 'cream'}
+          size={big ? 'md' : 'sm'}
+          onClick={() => d.setFilter(f.id)}
+          className={big ? '!h-[54px] !min-h-[54px] w-[220px] !text-[23px]' : ''}
+        >
+          {f.label}
+        </ClayButton>
+      ))}
+    </div>
+  )
+}
+
+function FridgePins(d: FridgeData) {
+  const { layout } = useSceneLayout()
+  const [door, setDoor] = useState(0)
+  // A new filter starts on the first door (without remounting, which would drop keyboard focus).
+  useEffect(() => setDoor(0), [d.filter])
+  const doors = Math.max(1, Math.ceil(d.shown.length / PER_DOOR))
+  const page = Math.min(door, doors - 1)
+  const onDoor = d.shown.slice(page * PER_DOOR, page * PER_DOOR + PER_DOOR)
+  if (layout !== 'scene') return null
+  return (
+    <>
+      <ScenePin x={400} y={52} w={452}>
+        <PaperCard flat tilt={-1.5} className="px-[26px] py-[18px]">
+          <h1 className="font-display text-[50px] leading-none font-semibold text-ink">My art</h1>
+          <p className="mt-2 text-[18px] leading-[1.25] font-bold text-[#5a4434]">Every page you color gets hung up here.</p>
+        </PaperCard>
+      </ScenePin>
+      <ScenePin x={392} y={40}>
+        <Magnet color="var(--ll-honey)" />
+      </ScenePin>
+      <ScenePin x={826} y={32}>
+        <Magnet color="var(--ll-sky)" />
+      </ScenePin>
+
+      <section aria-label="Pictures" className="pointer-events-none inset-0">
+        {onDoor.map((p, i) => (
+          <ScenePin key={p.art.id} x={SPOTS[i].x} y={SPOTS[i].y} w={208} h={287}>
+            <Picture
+              piece={p}
+              index={page * PER_DOOR + i}
+              colorUrl={d.thumbs.get(`${p.book.id}:${p.page.id}`)}
+              onOpen={() => d.open(p)}
+              className="size-full"
+              style={{ ['--r' as string]: `${SPOTS[i].tilt}deg` }}
+            />
+          </ScenePin>
+        ))}
+        {onDoor.length < PER_DOOR ? (
+          <ScenePin x={SPOTS[onDoor.length].x + 10} y={SPOTS[onDoor.length].y + 8} w={240} h={270}>
+            <EmptySpot linked={d.pieces.length === 0} className="size-full -rotate-1" />
+          </ScenePin>
+        ) : null}
+        {d.shown.length === 0 && d.pieces.length > 0 ? (
+          <ScenePin x={600} y={250} w={250}>
+            <PaperCard flat tilt={2} className="px-5 py-4 text-[21px] font-bold text-ink-deep">
+              No pictures here yet.
+            </PaperCard>
+          </ScenePin>
+        ) : null}
       </section>
 
-      {open ? <PictureViewer piece={open} colorUrl={thumbs.get(`${open.book.id}:${open.page.id}`)} onClose={() => setOpen(null)} /> : null}
-    </main>
+      <ScenePin x={640} y={548} w={240} h={250}>
+        <StickerSpot stickers={d.stickers} className="size-full" />
+      </ScenePin>
+
+      <ScenePin x={1112} y={612}>
+        <FilterButtons d={d} big />
+      </ScenePin>
+      {doors > 1 ? (
+        <ScenePin x={1112} y={826} w={220}>
+          <div className="flex items-center justify-between">
+            <ClayButton round diameter={60} tone="cream" aria-label="Newer pictures" disabled={page === 0} onClick={() => setDoor(page - 1)}>
+              <ChevronLeft className="size-8" strokeWidth={3} aria-hidden />
+            </ClayButton>
+            <span className="ll-shelf-label" aria-live="polite">
+              {page + 1} of {doors}
+            </span>
+            <ClayButton round diameter={60} tone="cream" aria-label="Older pictures" disabled={page >= doors - 1} onClick={() => setDoor(page + 1)}>
+              <ChevronRight className="size-8" strokeWidth={3} aria-hidden />
+            </ClayButton>
+          </div>
+        </ScenePin>
+      ) : null}
+
+      <TabBar variant="pins" />
+    </>
+  )
+}
+
+function FridgeStacked(d: FridgeData) {
+  const { layout } = useSceneLayout()
+  if (layout !== 'band') return null
+  return (
+    <div className={`-mt-8 flex flex-col items-center gap-7 px-4 ${TAB_BAR_SPACE}`}>
+      <PaperCard flat tilt={-1} className="relative w-full max-w-xl px-6 py-5">
+        <Magnet color="var(--ll-honey)" className="absolute -top-3 -left-2" />
+        <Magnet color="var(--ll-sky)" className="absolute -top-3 -right-2" />
+        <h1 className="font-display text-[2.25rem] leading-none font-semibold text-ink">My art</h1>
+        <p className="mt-2 font-bold text-[#5a4434]">Every page you color gets hung up here.</p>
+      </PaperCard>
+      <div className="w-full max-w-xl">
+        <FilterButtons d={d} />
+      </div>
+      <ul className="grid w-full max-w-xl grid-cols-2 gap-x-6 gap-y-9 pt-3">
+        {d.shown.map((p, i) => (
+          <li key={p.art.id}>
+            <Picture
+              piece={p}
+              index={i}
+              colorUrl={d.thumbs.get(`${p.book.id}:${p.page.id}`)}
+              onOpen={() => d.open(p)}
+              className="w-full"
+              style={{ ['--r' as string]: `${SPOTS[i % SPOTS.length].tilt / 1.5}deg` }}
+            />
+          </li>
+        ))}
+        {d.shown.length < 2 ? (
+          <li>
+            <EmptySpot linked={d.pieces.length === 0} className="aspect-[208/287] w-full" />
+          </li>
+        ) : null}
+      </ul>
+      <StickerSpot stickers={d.stickers} className="h-[210px] w-[240px]" />
+      <TabBar variant="fixed" />
+    </div>
   )
 }
 
 function PictureViewer({ piece, colorUrl, onClose }: { piece: Piece; colorUrl?: string; onClose: () => void }) {
   const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const panel = useRef<HTMLDivElement>(null)
   const { art, book, page } = piece
-  const updated = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'long' }).format(art.updatedAt)
+  const state = pageState(art)
+  const pageNo = book.pages.indexOf(page)
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  useModal(panel, onClose)
 
   async function save() {
     setSaving(true)
@@ -199,62 +314,48 @@ function PictureViewer({ piece, colorUrl, onClose }: { piece: Piece; colorUrl?: 
         height: book.pageSize.height,
         fileName: `${book.title} - ${page.title}`,
       })
+      setSaved(true)
     } finally {
       setSaving(false)
     }
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-deep/70 p-4 backdrop-blur-[2px]" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[rgb(40_25_15/0.55)] p-4 backdrop-blur-[2px]" onClick={onClose}>
       <div
+        ref={panel}
         role="dialog"
         aria-modal="true"
-        aria-label={page.title}
+        aria-labelledby="view-h"
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="relative flex max-h-full w-full max-w-4xl flex-col gap-5 overflow-y-auto rounded-[28px] bg-snow p-5 shadow-paper sm:flex-row sm:p-6"
+        className="ll-paper relative flex max-h-full w-full max-w-[52rem] flex-col gap-6 overflow-y-auto p-5 outline-none sm:flex-row sm:gap-8 sm:p-8"
       >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute top-3 right-3 z-10 grid size-11 place-items-center rounded-full bg-paper/90 text-graphite hover:bg-frost"
-        >
-          <X className="size-5" />
-        </button>
-        <div className="relative mx-auto aspect-[210/297] w-full max-w-[min(26rem,60dvh)] shrink-0 overflow-hidden rounded-[4px] bg-[#fffefb] shadow-paper sm:mx-0">
-          {colorUrl ? <img src={colorUrl} alt="" className="absolute inset-0 size-full" /> : null}
-          <img src={page.image} alt={`${page.title}, colored`} className="absolute inset-0 size-full" />
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <p className="text-[0.9375rem] text-graphite">{book.title}</p>
-          <h2 className="font-display text-title font-extrabold text-ink-deep">{page.title}</h2>
-          <p className="mt-2 flex items-center gap-1.5 text-graphite">
-            {art.completedAt ? (
-              <>
-                <Star className="size-4 fill-sunflower text-sunflower" /> Finished
-              </>
-            ) : (
-              `${Math.round(art.progress * 100)}% colored`
-            )}
-          </p>
-          <p className="text-[0.9375rem] text-graphite">Last colored {updated}</p>
-          <div className="mt-6 flex flex-col gap-3 sm:mt-auto">
-            <Link
-              to={`/color/${book.id}/${page.id}`}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-ink px-6 font-semibold text-white shadow-lift active:scale-95"
-            >
-              <Paintbrush className="size-5" /> {art.completedAt ? 'Color some more' : 'Keep coloring'}
-            </Link>
-            <button
-              type="button"
-              onClick={save}
-              disabled={saving}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-paper px-6 font-semibold text-ink ring-2 ring-inset ring-mist hover:ring-ink/30"
-            >
-              {saving ? <Spinner /> : <Download className="size-5" />} Save picture
-            </button>
+        <div className="mx-auto w-full max-w-[min(30rem,58dvh)] shrink-0 rounded-md bg-[#fffdf8] p-2.5 shadow-[0_8px_18px_-8px_rgb(60_35_15/0.5)] sm:mx-0 sm:w-[55%]">
+          <div className="relative aspect-[210/297] overflow-hidden rounded-[3px]">
+            {colorUrl ? <img src={colorUrl} alt="" className="absolute inset-0 size-full" /> : null}
+            <img src={page.image} alt={`${page.title}, ${state.note}`} className="absolute inset-0 size-full" />
           </div>
         </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-4 sm:pt-14">
+          <h2 id="view-h" className="font-display text-[2.25rem] leading-[1.05] font-semibold text-ink sm:text-[2.5rem]">
+            {page.title}
+          </h2>
+          <p className="text-[1.25rem] leading-snug font-bold text-[#5a4434]">
+            {state.status === 'done' ? 'Finished!' : `${state.pct}% colored.`} {book.title}, page {pageNo}.
+          </p>
+          <div className="mt-4 flex flex-col gap-4">
+            <ClayLink to={`/color/${book.id}/${page.id}`} tone="cran">
+              <Paintbrush className="size-6" aria-hidden /> {state.status === 'done' ? 'Color it again' : 'Keep coloring'}
+            </ClayLink>
+            <ClayButton tone="cream" busy={saving} onClick={save}>
+              {saving ? null : <Download className="size-6" aria-hidden />} {saved ? 'Saved ✓' : 'Save picture'}
+            </ClayButton>
+          </div>
+        </div>
+        <ClayButton round diameter={56} tone="cream" aria-label="Close" onClick={onClose} className="!absolute top-3 right-3">
+          <X className="size-7" strokeWidth={3} aria-hidden />
+        </ClayButton>
       </div>
     </div>,
     document.body,

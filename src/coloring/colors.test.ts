@@ -56,9 +56,24 @@ describe('tools', () => {
     expect(isTapTool('crayon')).toBe(false)
   })
 
-  it('scales widths with the page and clamps the size step', () => {
-    expect(toolWidth('marker', 0, 1600)).toBe(14)
-    expect(toolWidth('marker', 0, 800)).toBe(7)
-    expect(toolWidth('marker', 99, 1600)).toBe(72)
+  it('scales widths with the page', () => {
+    expect(toolWidth(14, 1600)).toBe(14)
+    expect(toolWidth(14, 800)).toBe(7)
+  })
+})
+
+describe('colorName', () => {
+  it('names colors in plain words', async () => {
+    const { colorName } = await import('./colors')
+    expect(colorName('#ffffff')).toBe('white')
+    expect(colorName('#000000')).toBe('black')
+    expect(colorName('#808080')).toBe('gray')
+    expect(colorName('#e0475b')).toBe('red')
+    expect(colorName('#3d8be8')).toBe('blue')
+    expect(colorName('#9cc7ee')).toBe('light blue')
+    expect(colorName('#2f7d4e')).toBe('green')
+    expect(colorName('#f2c230')).toBe('yellow')
+    expect(colorName('#7a4a2a')).toBe('brown')
+    expect(colorName('nope')).toBe('color')
   })
 })

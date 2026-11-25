@@ -1,8 +1,11 @@
 import { ArrowLeft, ChevronLeft, ChevronRight, Flame, Paintbrush, Volume2, VolumeX } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 import { FlipBook, type FlipBookHandle, type FlipPage, type FlipView } from '../components/FlipBook'
+import { ClayButton, ClayLink, ClayToggle, PaperCard, Tape } from '../components/cozy'
 import { cn } from '../components/ui'
+import { sceneBackground } from '../content/scenes'
+import { accentStyle } from '../lib/accent'
 import type { Book } from '../content/books'
 import { isSnowyBook, Snowfall } from '../components/Snowfall'
 import { logEvent } from '../data/events'
@@ -48,6 +51,7 @@ function Reader({ book }: { book: Book }) {
   const sound = usePrefs((s) => s.sound)
   const setSound = usePrefs((s) => s.setSound)
   const fireplace = usePrefs((s) => s.fireplace)
+  const snowOn = usePrefs((s) => s.snow)
   const setFireplace = usePrefs((s) => s.setFireplace)
   const artworks = useProfileArtworks()
   const flip = useRef<FlipBookHandle>(null)
@@ -116,56 +120,53 @@ function Reader({ book }: { book: Book }) {
   const atStart = visible[0] === 0
   const atEnd = visible[visible.length - 1] === count - 1
   const colorable = visible.map((i) => book.pages[i]).filter((p) => p.kind === 'line-art')
+  const [smallScene] = useState(() => window.innerWidth * (window.devicePixelRatio || 1) <= 1300)
 
   return (
-    <div
-      className="relative isolate flex h-dvh flex-col overflow-hidden text-white"
-      style={{
-        backgroundColor: book.theme.deep,
-        backgroundImage: `radial-gradient(ellipse 70% 60% at 50% 45%, color-mix(in srgb, ${book.theme.deep} 70%, white 12%), transparent 75%)`,
-      }}
+    <main
+      className="relative isolate flex h-dvh flex-col overflow-hidden bg-[#c98f55] bg-cover bg-center text-ink-deep"
+      style={{ ...accentStyle(book.theme), backgroundImage: sceneBackground('reader', book.season, smallScene) }}
     >
-      {isSnowyBook(book) ? <Snowfall className="-z-10" /> : null}
-      <header className="flex shrink-0 items-center justify-between gap-3 px-3 pt-3 sm:px-5">
-        <Link
-          to={`/books/${book.id}`}
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 font-semibold text-white/90 hover:bg-white/10"
-        >
-          <ArrowLeft className="size-5" /> <span className="hidden sm:inline">Close book</span>
-        </Link>
-        <div className="min-w-0 text-center">
-          <h1 className="truncate font-display text-[1.25rem] font-bold">{book.title}</h1>
-          <p className="text-[0.875rem] text-white/70" aria-live="polite">
-            {positionLabel(book, visible)}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center">
-          <button
-            type="button"
-            onClick={() => setFireplace(!fireplace)}
-            aria-pressed={fireplace}
-            aria-label={fireplace ? 'Turn fireplace sounds off' : 'Turn fireplace sounds on'}
-            title="Cozy fireplace sounds"
-            className={cn(
-              'grid size-11 place-items-center rounded-full hover:bg-white/10',
-              fireplace ? 'text-sunflower' : 'text-white/70',
-            )}
-          >
-            <Flame className={cn('size-5', fireplace && 'fill-current')} />
-          </button>
-          <button
-            type="button"
+      <h1 className="sr-only">{book.title}</h1>
+      {/* Where you are in the book, announced on every screen size. */}
+      <p className="sr-only" aria-live="polite">
+        {positionLabel(book, visible)}
+      </p>
+      {isSnowyBook(book) && snowOn ? <Snowfall className="-z-10 opacity-70" /> : null}
+      {fireplace ? <div aria-hidden className="ll-fire-glow" /> : null}
+
+      <header className="flex shrink-0 items-center justify-between gap-3 px-3 pt-3 sm:px-6 sm:pt-5 [@media(max-height:560px)]:pt-2">
+        <ClayLink to={`/books/${book.id}`} className="min-w-0 max-sm:min-h-14 !pl-5 sm:!pr-8 sm:text-[1.5rem]" aria-label={`Close ${book.title}`}>
+          <ArrowLeft className="size-6 shrink-0" strokeWidth={2.6} aria-hidden />
+          <span className="hidden truncate sm:inline">{book.title}</span>
+        </ClayLink>
+        <p className="ll-pill hidden min-w-0 truncate md:block" aria-hidden>
+          {positionLabel(book, visible) || book.title}
+        </p>
+        <div className="flex shrink-0 items-center gap-3">
+          <ClayButton
+            round
+            diameter={56}
             onClick={() => setSound(!sound)}
             aria-pressed={sound}
-            aria-label={sound ? 'Turn page sounds off' : 'Turn page sounds on'}
-            className="grid size-11 place-items-center rounded-full text-white/90 hover:bg-white/10"
+            aria-label="Page sounds"
           >
-            {sound ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}
-          </button>
+            {sound ? <Volume2 className="size-6" aria-hidden /> : <VolumeX className="size-6" aria-hidden />}
+          </ClayButton>
+          <ClayToggle
+            checked={fireplace}
+            onChange={setFireplace}
+            label="Cozy fireplace sounds"
+            icon={<Flame className="size-6" fill={fireplace ? 'currentColor' : 'none'} />}
+            tone={{ on: '#e8873a', onDk: '#b4552e' }}
+          />
         </div>
       </header>
+      <p className="ll-pill mx-auto mt-2 md:hidden" aria-hidden>
+        {positionLabel(book, visible) || book.title}
+      </p>
 
-      <div className="relative flex min-h-0 flex-1 items-center px-2 py-4 sm:px-4 md:px-20">
+      <div className="relative flex min-h-0 flex-1 items-center px-2 py-3 sm:px-4 md:px-24">
         <TurnButton side="prev" placement="side" disabled={atStart || riffling} onClick={() => flip.current?.prev()} />
         {artworks === undefined ? (
           <Splash />
@@ -187,51 +188,59 @@ function Reader({ book }: { book: Book }) {
       <footer className="shrink-0 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5">
         <div className="mx-auto flex max-w-4xl items-center justify-center gap-3">
           <TurnButton side="prev" placement="inline" disabled={atStart || riffling} onClick={() => flip.current?.prev()} />
-          <div className="flex min-h-14 flex-1 flex-wrap items-center justify-center gap-2">
+          <div className="flex min-h-[4.5rem] min-w-0 flex-1 flex-wrap items-center justify-center gap-3 [@media(max-height:560px)]:min-h-14">
             {colorable.length > 0 ? (
               colorable.map((p) => (
-                <button
+                <ClayButton
                   key={p.id}
-                  type="button"
                   onClick={() => openPage(p)}
                   disabled={riffling}
-                  className="inline-flex min-h-12 items-center gap-2 rounded-full bg-white px-5 font-semibold text-ink-deep shadow-lift transition-transform active:scale-95"
+                  aria-label={colorable.length === 1 ? `Color this page: ${p.title}` : `Color ${p.title}`}
+                  size={colorable.length === 1 ? 'lg' : 'md'}
+                  className="max-w-full max-sm:!min-h-[60px] max-sm:!px-5 max-sm:!text-[1.25rem] [@media(max-height:560px)]:!min-h-12 [@media(max-height:560px)]:!text-[1.125rem]"
                 >
-                  <Paintbrush className="size-5" style={{ color: book.theme.accent }} />
+                  <Paintbrush className="size-7 shrink-0 max-sm:size-6" aria-hidden />
                   {colorable.length === 1 ? 'Color this page' : p.title}
-                </button>
+                </ClayButton>
               ))
             ) : (
-              <p className="text-center text-white/75">
+              <PaperCard flat tilt={-1} className="px-5 py-3 text-center font-bold">
                 {atStart ? 'Swipe or drag the corner to open the book.' : 'That’s the end. Flip back to color more.'}
-              </p>
+              </PaperCard>
             )}
           </div>
           <TurnButton side="next" placement="inline" disabled={atEnd || riffling} onClick={() => flip.current?.next()} />
         </div>
 
-        <nav aria-label="Pages" className="mx-auto mt-3 flex max-w-4xl justify-center gap-2 overflow-x-auto pb-1">
-          {book.pages.map((p, i) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => flip.current?.flipTo(i)}
-              disabled={riffling}
-              aria-label={`Go to ${p.title}`}
-              aria-current={visible.includes(i) ? 'page' : undefined}
-              className={cn(
-                'aspect-[210/297] h-14 shrink-0 overflow-hidden rounded-[3px] bg-white transition-[opacity,box-shadow,transform] sm:h-16',
-                visible.includes(i)
-                  ? 'opacity-100 shadow-[0_0_0_3px_var(--color-sunflower)]'
-                  : 'opacity-55 hover:-translate-y-0.5 hover:opacity-90',
-              )}
-            >
-              <img src={p.thumb} alt="" className="size-full object-cover" draggable={false} />
-            </button>
-          ))}
-        </nav>
+        {/* Every page, on a strip of washi tape */}
+        <div className="relative mx-auto mt-3 w-fit max-w-full [@media(max-height:560px)]:hidden">
+          <Tape variant="rainbow" className="!z-0 !top-1/2 !left-[-1.5rem] !h-11 !w-[calc(100%+3rem)] -translate-y-1/2 -rotate-1 opacity-85" />
+          <nav aria-label="Pages" className="ll-strip relative z-10 flex gap-3 overflow-x-auto px-2 pt-3 pb-2">
+            {book.pages.map((p, i) => {
+              const on = visible.includes(i)
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    if (!riffling) flip.current?.flipTo(i)
+                  }}
+                  aria-disabled={riffling || undefined}
+                  aria-label={`Go to ${p.title}`}
+                  aria-current={on ? 'page' : undefined}
+                  className={cn(
+                    'aspect-[210/297] h-[3.75rem] shrink-0 rounded-[4px] bg-[#fffdf8] p-1 shadow-[0_6px_10px_-6px_rgb(40_20_5/0.6)] transition-transform sm:h-20',
+                    on ? '-translate-y-2 shadow-[0_0_0_3px_var(--acc),0_8px_12px_-6px_rgb(40_20_5/0.6)]' : 'hover:-translate-y-1',
+                  )}
+                >
+                  <img src={p.thumb} alt="" className="size-full rounded-[2px] object-cover object-top" draggable={false} />
+                </button>
+              )
+            })}
+          </nav>
+        </div>
       </footer>
-    </div>
+    </main>
   )
 }
 
@@ -242,26 +251,27 @@ function TurnButton({
   onClick,
 }: {
   side: 'prev' | 'next'
-  /** side: floating beside the book on tablets and up; inline: in the footer on phones. */
+  /** side: beside the book on tablets and up; inline: in the footer on phones. */
   placement: 'side' | 'inline'
   disabled: boolean
   onClick: () => void
 }) {
   const Icon = side === 'prev' ? ChevronLeft : ChevronRight
   return (
-    <button
-      type="button"
+    <ClayButton
+      round
+      diameter={placement === 'side' ? 84 : 56}
       onClick={onClick}
       disabled={disabled}
       aria-label={side === 'prev' ? 'Previous page' : 'Next page'}
       className={cn(
-        'z-10 shrink-0 place-items-center rounded-full bg-white/12 text-white transition-[background-color,opacity,transform] hover:bg-white/22 active:scale-90 disabled:opacity-25',
+        'z-10 shrink-0',
         placement === 'side'
-          ? cn('absolute top-1/2 hidden size-14 -translate-y-1/2 md:grid', side === 'prev' ? 'left-4' : 'right-4')
-          : 'grid size-12 md:hidden',
+          ? cn('!absolute top-1/2 !hidden -translate-y-1/2 md:!inline-flex', side === 'prev' ? 'left-4' : 'right-4')
+          : 'md:!hidden',
       )}
     >
-      <Icon className="size-7" />
-    </button>
+      <Icon className={placement === 'side' ? 'size-11' : 'size-8'} strokeWidth={3} aria-hidden />
+    </ClayButton>
   )
 }

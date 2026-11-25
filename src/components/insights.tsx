@@ -57,7 +57,7 @@ function Fact({ icon, children, sub }: { icon: ReactNode; children: ReactNode; s
 export function WeekPanel({ stats, color, you = true }: { stats: ProfileStats; color: string; you?: boolean }) {
   const days = stats.streak === 1 ? 'day' : 'days'
   return (
-    <div className="grid gap-6 rounded-[28px] bg-paper p-5 shadow-paper sm:p-6 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:gap-10">
+    <div className="grid gap-6 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] md:gap-8">
       <div>
         <h3 className="font-semibold text-ink-deep">Minutes colored each day</h3>
         <div className="mt-4">

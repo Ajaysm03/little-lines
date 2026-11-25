@@ -59,6 +59,8 @@ export interface BookMeta {
   category: string
   ageRange: string
   tags: string[]
+  /** Which set of scenes the family app shows with this book. */
+  season: Season
   theme: { accent: string; deep: string; glow: string; palette: string[] }
   pageSize: { width: number; height: number }
 }
@@ -91,6 +93,8 @@ export class CatalogError extends Error {
 const STATUSES: Status[] = ['draft', 'published', 'archived']
 const TIERS: Tier[] = ['free', 'premium']
 const KINDS: PageKind[] = ['front-cover', 'line-art', 'back-cover']
+export const SEASONS = ['winter', 'spring', 'summer', 'autumn'] as const
+export type Season = (typeof SEASONS)[number]
 export const CATEGORIES = ['Holidays', 'Animals', 'Nature', 'Fantasy', 'Vehicles', 'Everyday', 'Other']
 const ID = /^[a-z0-9][a-z0-9-]{1,63}$/
 const PAGE_ID = /^(p\d{2,3}|front-cover|back-cover)$/
@@ -114,6 +118,7 @@ export function cleanMeta(v: unknown): BookMeta {
     category: CATEGORIES.includes(category) ? category : 'Other',
     ageRange: s(m.ageRange, 20),
     tags: Array.isArray(m.tags) ? m.tags.map((t) => s(t, 30)).filter(Boolean).slice(0, 8) : [],
+    season: SEASONS.includes(m.season as Season) ? (m.season as Season) : 'winter',
     theme: {
       accent: color(theme.accent, '#2b2f6b'),
       deep: color(theme.deep, '#1b1e45'),

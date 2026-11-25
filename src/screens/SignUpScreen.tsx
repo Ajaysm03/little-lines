@@ -1,9 +1,9 @@
 import { ArrowLeft } from 'lucide-react'
-import { useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { GoogleButton, OrDivider, useAuthOptions } from '../components/GoogleButton'
 import { PinPad } from '../components/PinPad'
-import { Button, FormError, TextField } from '../components/ui'
+import { ClayButton, ClayField, FormNote } from '../components/cozy'
 import { MIN_PASSWORD_LENGTH, UserFacingError } from '../data/accounts'
 import { AuthError, useSession } from '../state/session-store'
 import { AuthLayout } from './AuthLayout'
@@ -37,6 +37,12 @@ export function SignUpScreen() {
     setErrors(next)
     if (Object.keys(next).length === 0) setStep('pin')
   }
+
+  // When a field has a problem (here or back from the server), put the cursor in it so it's heard.
+  useEffect(() => {
+    if (step === 'details' && Object.keys(errors).length)
+      requestAnimationFrame(() => document.querySelector<HTMLInputElement>('input[aria-invalid="true"]')?.focus())
+  }, [errors, step])
 
   async function onPin(parentPin: string) {
     setFormError(null)
@@ -75,7 +81,7 @@ export function SignUpScreen() {
     <AuthLayout>
       {step === 'details' ? (
         <>
-          <h1 className="font-display text-display font-extrabold text-ink-deep">Make a family account</h1>
+          <h1 className="font-display text-[2.25rem] leading-[1.05] font-semibold sm:text-[2.75rem] text-ink-deep">Make a family account</h1>
           <p className="mt-3 max-w-[36ch] text-graphite">
             One grown-up account holds everyone’s profiles, pages and progress.
           </p>
@@ -86,8 +92,8 @@ export function SignUpScreen() {
             </div>
           ) : null}
           <form onSubmit={onDetails} className={options?.google ? 'flex flex-col gap-5' : 'mt-8 flex flex-col gap-5'} noValidate>
-            <TextField label="Your name" autoComplete="name" value={fields.name} onChange={set('name')} error={errors.name} />
-            <TextField
+            <ClayField label="Your name" autoComplete="name" value={fields.name} onChange={set('name')} error={errors.name} />
+            <ClayField
               label="Email"
               type="email"
               autoComplete="email"
@@ -96,7 +102,7 @@ export function SignUpScreen() {
               onChange={set('email')}
               error={errors.email}
             />
-            <TextField
+            <ClayField
               label="Password"
               type="password"
               autoComplete="new-password"
@@ -105,14 +111,14 @@ export function SignUpScreen() {
               error={errors.password}
               hint={`At least ${MIN_PASSWORD_LENGTH} characters.`}
             />
-            <FormError>{formError}</FormError>
-            <Button type="submit" size="lg" className="mt-1">
+            <FormNote>{formError}</FormNote>
+            <ClayButton type="submit" size="lg" className="w-full mt-1">
               Continue
-            </Button>
+            </ClayButton>
           </form>
           <p className="mt-8 text-graphite">
             Already have an account?{' '}
-            <Link to="/welcome" className="font-semibold text-ink underline decoration-sunflower decoration-[3px] underline-offset-4">
+            <Link to="/welcome" className="font-semibold text-ink underline decoration-honey decoration-[3px] underline-offset-4">
               Log in
             </Link>
           </p>
@@ -126,16 +132,18 @@ export function SignUpScreen() {
           >
             <ArrowLeft className="size-5" /> Back
           </button>
-          <div className="w-full rounded-[28px] bg-paper px-6 py-8 shadow-paper">
+          <div className="w-full rounded-[28px] bg-cream px-4 py-6 ring-2 ring-mist/70">
             <PinPad
               mode="create"
+              headingLevel={1}
+              focusHeading
               title="Choose a parent PIN"
               subtitle="4 numbers that keep the grown-ups area just for grown-ups."
               onSubmit={onPin}
             />
           </div>
           <div className="mt-4 w-full">
-            <FormError>{formError}</FormError>
+            <FormNote>{formError}</FormNote>
           </div>
         </div>
       )}

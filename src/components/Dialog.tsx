@@ -1,24 +1,15 @@
 import { X } from 'lucide-react'
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useModal } from '../lib/useModal'
 
-/** Centered sheet over a dimmed backdrop. Escape or the close button dismisses it. */
+/** Centered paper sheet over a dimmed backdrop. Escape or the close button dismisses it; focus stays inside. */
 export function Dialog({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
   const panel = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null
-    panel.current?.focus()
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      previous?.focus()
-    }
-  }, [onClose])
+  useModal(panel, onClose)
 
   return createPortal(
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink-deep/45 px-4 backdrop-blur-[2px]" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-ink-deep/45 px-4 py-6 backdrop-blur-[2px]" onClick={onClose}>
       <div
         ref={panel}
         role="dialog"
@@ -26,7 +17,7 @@ export function Dialog({ label, onClose, children }: { label: string; onClose: (
         aria-label={label}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-sm rounded-[28px] bg-snow px-6 pt-10 pb-8 shadow-paper outline-none"
+        className="ll-paper relative w-full max-w-sm px-6 pt-10 pb-8 outline-none"
       >
         <button
           type="button"
@@ -34,7 +25,7 @@ export function Dialog({ label, onClose, children }: { label: string; onClose: (
           aria-label="Close"
           className="absolute top-3 right-3 grid size-11 place-items-center rounded-full text-graphite hover:bg-frost"
         >
-          <X className="size-5" />
+          <X className="size-5" aria-hidden />
         </button>
         {children}
       </div>

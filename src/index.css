@@ -1,23 +1,36 @@
-@import '@fontsource-variable/shantell-sans/full.css';
-@import '@fontsource-variable/atkinson-hyperlegible-next/index.css';
+@import '@fontsource-variable/fredoka/wght.css';
+@import '@fontsource-variable/nunito/wght.css';
+@import '@fontsource/pacifico/400.css';
 @import 'tailwindcss';
+@import './styles/cozy.css' layer(components);
 
 /*
- * Little Lines design tokens
- * Paper and pencil-box ink stay quiet so the colored pages carry the color.
+ * Little Lines design tokens (cozy redesign, Phase R1)
+ * Warm paper, cocoa ink and honey wood; painted scenes sit behind the UI.
  * The six crayons are identity colors: each child picks one.
+ * Each open book adds its own accent (--acc, see src/lib/accent.ts).
  */
 @theme {
-  --font-display: 'Shantell Sans Variable', 'Comic Neue', ui-rounded, system-ui, sans-serif;
-  --font-sans: 'Atkinson Hyperlegible Next Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Fredoka Variable', ui-rounded, system-ui, sans-serif;
+  --font-sans: 'Nunito Variable', ui-rounded, ui-sans-serif, system-ui, sans-serif;
+  --font-book: 'Pacifico', cursive;
 
-  --color-snow: #f3f5fa;
-  --color-frost: #e9edf6;
-  --color-mist: #dce1ec;
-  --color-paper: #ffffff;
-  --color-graphite: #5b6180;
-  --color-ink: #2b2f6b;
-  --color-ink-deep: #1b1e45;
+  --color-snow: #f6eedf;
+  --color-frost: #efe4d0;
+  --color-mist: #e2d3ba;
+  --color-paper: #fffdf8;
+  --color-cream: #fbf5e8;
+  --color-graphite: #6b5444;
+  --color-ink: #4a2c1a;
+  --color-ink-deep: #3e2a1e;
+
+  --color-honey: #edb94e;
+  --color-honey-dk: #b9832a;
+  --color-peach: #f2a27e;
+  --color-rust: #a3401f;
+  --color-wood: #8a5a37;
+  --color-wood-dk: #6e4426;
+  --color-navy: #3a3f6e;
 
   --color-cranberry: #e0475b;
   --color-tangerine: #f28a2e;
@@ -39,9 +52,9 @@
   --text-body: 1.0625rem;
   --text-body--line-height: 1.55;
 
-  --shadow-paper: 0 1px 0 rgb(27 30 69 / 0.05), 0 18px 40px -18px rgb(27 30 69 / 0.35);
-  --shadow-book: 1px 1px 0 rgb(27 30 69 / 0.08), 0 14px 28px -12px rgb(27 30 69 / 0.45);
-  --shadow-lift: 0 2px 0 rgb(27 30 69 / 0.06), 0 10px 24px -14px rgb(27 30 69 / 0.4);
+  --shadow-paper: 0 1px 0 rgb(60 35 15 / 0.06), 0 18px 40px -18px rgb(60 35 15 / 0.45);
+  --shadow-book: 1px 1px 0 rgb(60 35 15 / 0.08), 0 14px 28px -12px rgb(60 35 15 / 0.5);
+  --shadow-lift: 0 2px 0 rgb(60 35 15 / 0.07), 0 10px 24px -14px rgb(60 35 15 / 0.45);
 
   --animate-shake: shake 0.36s ease-in-out;
   @keyframes shake {
@@ -66,12 +79,8 @@
     line-height: var(--text-body--line-height);
     -webkit-font-smoothing: antialiased;
   }
-  /* Hand-drawn display voice: a little informal, a little bounce. */
-  .font-display {
-    font-variation-settings: 'INFM' 55, 'BNCE' 35;
-  }
   :focus-visible {
-    outline: 3px solid var(--color-sky);
+    outline: 4px solid #2a5689;
     outline-offset: 3px;
     border-radius: 6px;
   }

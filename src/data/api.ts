@@ -47,6 +47,8 @@ export interface CatalogMeta {
   category: string
   ageRange: string
   tags: string[]
+  /** Older books saved before seasons existed have none; treat as winter. */
+  season?: 'winter' | 'spring' | 'summer' | 'autumn'
   theme: { accent: string; deep: string; glow: string; palette: string[] }
   pageSize: { width: number; height: number }
 }

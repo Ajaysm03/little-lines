@@ -147,7 +147,7 @@ export function AdminHeader({ title, intro, actions }: { title: string; intro?: 
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="font-display text-title font-extrabold text-ink-deep">{title}</h1>
+        <h1 className="font-display text-title font-semibold text-ink-deep">{title}</h1>
         {intro ? <p className="mt-1 max-w-prose text-graphite">{intro}</p> : null}
       </div>
       {actions}

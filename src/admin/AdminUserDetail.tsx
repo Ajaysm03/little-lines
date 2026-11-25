@@ -95,7 +95,7 @@ export function AdminUserDetail() {
     <>
       {back}
       <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h1 className="font-display text-title font-extrabold text-ink-deep">{user.name}</h1>
+        <h1 className="font-display text-title font-semibold text-ink-deep">{user.name}</h1>
         <StatusChip status={user.status} />
         <PlanChip plan={user.plan.effective} />
       </div>

@@ -47,6 +47,8 @@ interface SessionState {
   checkPin(key: string, verify: () => Promise<boolean>): Promise<'ok' | 'wrong' | 'locked'>
   unlockParent(pin: string): Promise<'ok' | 'wrong' | 'locked'>
   lockParent(): void
+  /** Grown-ups are still using it: push the unlock expiry forward. */
+  extendParent(): void
 }
 
 export class AuthError extends Error {}
@@ -191,6 +193,10 @@ export const useSession = create<SessionState>((set, get) => ({
 
   lockParent() {
     set({ parentUnlockedUntil: 0 })
+  },
+
+  extendParent() {
+    if (get().parentUnlockedUntil > Date.now()) set({ parentUnlockedUntil: Date.now() + PARENT_UNLOCK_MS })
   },
 }))
 

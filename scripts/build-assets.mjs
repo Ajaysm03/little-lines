@@ -10,6 +10,12 @@
  *   public/books/<id>/pages/<page>.png        black line art on a transparent background
  *   public/books/<id>/thumbs/<page>.webp      small preview on white paper
  * and one manifest: src/content/generated/books.json
+ *
+ * It also builds the cozy-redesign scenes and avatars from ../Redesign Concepts/Plates:
+ *   public/scenes/winter/<scene>.webp (2000 px wide) and <scene>-1200.webp
+ *   public/avatars/<animal>.webp      round clay animals cut from the avatar sheet
+ *
+ *   npm run assets:scenes   only the scenes and avatars (quick)
  */
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -34,6 +40,7 @@ const BOOKS = [
       'Step into heart-warming Christmas scenes: trim the tree, peek inside Santa’s busy workshop, bake gingerbread cookies with Grandma and skate on a frozen pond with woodland friends.',
     ageRange: '8–12 and the whole family',
     tags: ['Christmas', 'Winter', 'Family', 'Animals'],
+    season: 'winter',
     theme: {
       // Pulled from the front cover art.
       accent: '#C8283A',
@@ -155,7 +162,83 @@ async function main() {
   console.log(`Wrote ${manifest.length} book(s) to src/content/generated/books.json`)
 }
 
-main().catch((err) => {
+// ---------- Cozy redesign: scenes and avatars ----------
+
+const PLATES_DIR = path.join(ART_DIR, 'Redesign Concepts', 'Plates')
+
+/** Scene name → plate file, per season. Add spring/summer/autumn sets here as they are made. */
+const SCENES = {
+  winter: {
+    login: 'plate-login.webp',
+    home: 'plate-home.webp',
+    book: 'plate-book.webp',
+    reader: 'plate-reader.webp',
+    profiles: 'plate-profiles.webp',
+    library: 'plate-library.webp',
+    myart: 'plate-myart.webp',
+    grownups: 'plate-grownups.webp',
+    studio: 'plate-studio.webp',
+  },
+}
+
+/** The avatar sheet: a 4×3 grid of round clay animals on cream (centers measured on the 2000×1493 sheet). */
+const AVATAR_SHEET = 'avatars.webp'
+const AVATAR_GRID = {
+  ids: ['fox', 'bear', 'bunny', 'owl', 'reindeer', 'hedgehog', 'penguin', 'cat', 'puppy', 'panda', 'frog', 'unicorn'],
+  xs: [292, 764, 1236, 1708],
+  ys: [274, 747, 1221],
+  radius: 191,
+  sheetWidth: 2000,
+}
+const AVATAR_SIZE = 256
+
+async function buildScenes() {
+  for (const [season, scenes] of Object.entries(SCENES)) {
+    const out = path.join(APP_DIR, 'public', 'scenes', season)
+    await mkdir(out, { recursive: true })
+    for (const [name, file] of Object.entries(scenes)) {
+      const src = path.join(PLATES_DIR, file)
+      // 4:3 at 2000 px; plates that come back a little off are center-cropped to 4:3.
+      await sharp(src).resize(2000, 1500, { fit: 'cover' }).webp({ quality: 80 }).toFile(path.join(out, `${name}.webp`))
+      await sharp(src).resize(1200, 900, { fit: 'cover' }).webp({ quality: 78 }).toFile(path.join(out, `${name}-1200.webp`))
+      process.stdout.write(`  scene ${season}/${name}\n`)
+    }
+  }
+}
+
+async function buildAvatars() {
+  const out = path.join(APP_DIR, 'public', 'avatars')
+  await mkdir(out, { recursive: true })
+  const src = path.join(PLATES_DIR, AVATAR_SHEET)
+  const { width } = await sharp(src).metadata()
+  const k = width / AVATAR_GRID.sheetWidth
+  const r = Math.round(AVATAR_GRID.radius * k)
+  const mask = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${AVATAR_SIZE}" height="${AVATAR_SIZE}"><circle cx="${AVATAR_SIZE / 2}" cy="${AVATAR_SIZE / 2}" r="${AVATAR_SIZE / 2 - 1}" fill="#fff"/></svg>`,
+  )
+  for (const [i, id] of AVATAR_GRID.ids.entries()) {
+    const cx = Math.round(AVATAR_GRID.xs[i % 4] * k)
+    const cy = Math.round(AVATAR_GRID.ys[Math.floor(i / 4)] * k)
+    await sharp(src)
+      .extract({ left: cx - r, top: cy - r, width: r * 2, height: r * 2 })
+      .resize(AVATAR_SIZE, AVATAR_SIZE)
+      .ensureAlpha()
+      .composite([{ input: mask, blend: 'dest-in' }])
+      .webp({ quality: 85 })
+      .toFile(path.join(out, `${id}.webp`))
+  }
+  console.log(`  ${AVATAR_GRID.ids.length} avatars`)
+}
+
+const onlyScenes = process.argv.includes('scenes')
+
+async function run() {
+  if (!onlyScenes) await main()
+  await buildScenes()
+  await buildAvatars()
+}
+
+run().catch((err) => {
   console.error(err)
   process.exit(1)
 })

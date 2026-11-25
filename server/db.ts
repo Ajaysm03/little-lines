@@ -22,6 +22,9 @@ export function getPool(): pg.Pool {
     max: local ? 1 : 5,
     idleTimeoutMillis: 10_000,
   })
+  // An idle connection the database (or the network) drops emits 'error' on the pool. Without a
+  // listener Node treats that as unhandled and the whole server exits; the pool just replaces it.
+  pool.on('error', (err) => console.warn('Database connection dropped:', err.message))
   return pool
 }
 

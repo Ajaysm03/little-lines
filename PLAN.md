@@ -205,6 +205,162 @@ Canvas 2D + Pointer Events (pressure/tilt), Web Worker region map (fill + stay-i
 Two-step sign-in for the owner, scheduled publishing for seasonal books, families requesting books,
 a maintenance banner, Stripe payments on top of the plan model.
 
+## Cozy redesign (family app)
+
+Turns the family app into a cozy drawing-game world, following the designs on the "Little Lines Cozy Redesign"
+canvas (claude.ai/artifact/Ed96njthfFcrSU2KNa3ToR, private). Scene pictures and avatars live in
+`../Redesign Concepts/Plates/`, the prompts that made them in `../Redesign Concepts/Scene plate prompts.md`.
+
+### Decisions
+
+| Area | Decision |
+|---|---|
+| Look | Painted clay scenes behind every screen. Cream paper cards with washi tape hold content; chunky clay buttons (they sink 5 px when pressed) are the actions |
+| Fonts | Fredoka for headings and buttons, Nunito for reading text, Pacifico for book titles, everywhere (kids and grown-ups). Shantell Sans and Atkinson Hyperlegible go |
+| Colors | Base colors stay the same on every screen (paper, ink, honey, peach, wood). Each book brings its accents from its existing theme (`accent`, `deep`, `glow`, `palette`): main buttons, progress and the reader's toggles take them. The six profile crayons stay |
+| Scenes | Eight 4:3 scene pictures (login desk, snowy village, book desk, reader desk, entryway, bookshop, fridge, study) as WebP backgrounds. All UI is real HTML on top, so it stays sharp, translatable and accessible. Twelve clay animal avatars replace the emoji |
+| Seasons | Winter scenes now. Books get a `season` setting (owner console, default winter); the scene set follows the season and falls back to winter until other sets exist |
+| Screen sizes | Tablets and desktops get the scene layouts from the designs (drawn at 1366×1024). Parts tied to something in the picture (signposts, shelves, coat hooks, the book stand, the fridge door) are placed in picture coordinates by one shared helper, so they stay put however the picture is cropped; floating panels anchor to screen edges. Phones held upright show the scene as a picture band at the top, with cards and pages stacked below |
+| Owner console | Light refresh only: the new fonts and colors, same layout |
+| Unchanged | Data, sync, accounts, server, emails and the coloring engine's internals |
+
+### Phase R1: Look and building blocks ✅
+- Design tokens in `index.css`: base colors, shadows, radii; `--acc` / `--acc-dk` set from the open book's theme
+  (with a contrast check so text on accent buttons stays readable)
+- Fonts through @fontsource (Fredoka, Nunito, Pacifico); remove Shantell Sans and Atkinson Hyperlegible
+- Components: clay button (link and round versions, sizes, pressed state), paper card, tape, chip, sticker badge,
+  toggle, text field, magnet, signpost label; PIN pad restyled; `Scene` (picture background, a layer placed in
+  picture coordinates, the phone picture band)
+- Assets: scene pictures to `public/scenes/winter/` in two sizes, avatars to `public/avatars/`, both made by
+  `npm run assets`; `Avatar` shows the clay animals; service worker precaches them
+- `season` on books (bundled, catalog, owner editor), default winter
+- A developer-only kit page to check every component; tests for the accent and contrast helpers
+
+- Built: Fredoka / Nunito / Pacifico replace the old fonts, and the base colors moved to warm paper and cocoa, so
+  screens not yet redesigned already look warmer. `src/styles/cozy.css` (ll-* classes) and
+  `src/components/cozy` (ClayButton, ClayLink, PaperCard, Tape, Chip, StatusSticker, ClayToggle, ClayField,
+  Magnet, SignLabel, CrayonProgress) plus `Scene` / `ScenePin` / `useSceneLayout` (pins in 1366×1024 picture
+  coordinates; upright phones get a picture band). `src/lib/accent.ts` turns a book theme into `--acc`, `--acc-dk`
+  and `--on-acc`, picking white or cocoa text and deepening the color until labels pass 4.5:1. PIN pad uses clay
+  dots and keys. `npm run assets:scenes` builds `public/scenes/winter/*` (2000 and 1200 px, 860 KB) and the 12
+  avatars (`public/avatars`, 96 KB); profiles show the clay animals. `season` on books (bundled, catalog details,
+  owner book form; default winter). Kit page at `/dev/kit` (dev server only). Offline cache is now 5.8 MB; R6 can
+  leave the 2000 px scenes out of the precache
+
+### Phase R2: Sign-in and profiles ✅
+- Welcome (taped card on the pegboard), Sign up (step 1 details, step 2 parent PIN), choose a PIN after Google sign-up
+- Forgot password with "Check your email", Reset password with its changed and expired states
+- Who's coloring today?: name tags hanging from the entryway hooks, a lock for profiles with a PIN, "Add someone
+  to color" on the bench, Grown-ups button
+- Profile editor: 12 avatars, 6 clay crayons, PIN switch, live tag preview, delete for existing profiles
+- Built: `AuthLayout` puts every account screen on a taped paper card over the art-desk scene (card stacked under
+  the picture on upright phones); clay fields (password eye built in), clay buttons, `FormNote` for form errors,
+  clay white Google button. The profile picker hangs tags on the six painted hooks (hooks 1/3/5 for up to three
+  children, the middle run for more) whenever the whole row and the bench are on screen; narrower or short screens
+  and phones get the same tags in a grid. Editor is one big paper card with the hanging-tag preview, clay animal
+  grid, clay crayons, PIN switch and a Save button in the child's crayon (cocoa text on tangerine and sunflower).
+  Dialogs are paper now. Fixed: scenes re-measure when the window changes between layouts
+
+### Phase R3: Reading ✅
+- Home in the village: greeting, "Keep coloring" card, "Your week", signposts and the Bookshop door, pages to color
+  on the fence. The clay tab bar (Home, Library, My art, Grown-ups) replaces the side rail and bottom bar on kids'
+  screens
+- Library in the bookshop: search, filters, books on the shelves, pages on the bottom shelf, "Coming soon" slots
+  while the catalog is small, Premium locks
+- Book page: cover on the wooden stand, title card in the book font, chips, crayon progress, pages along the desk edge
+- Reader on the desk: the existing flip book restyled, clay arrows, sound and fireplace toggles, "Color this page",
+  page thumbnails on washi tape
+- Built: scenes gained `fit="contain"`: the whole 4:3 picture over a blurred copy of itself, so Home, Library and
+  the Book page are laid out entirely in picture pixels exactly as designed, on any window shape; below
+  `minScale` (phones, landscape phones) they switch to the picture band with the same cards stacked. Clay
+  `TabBar` (pins in the scene, or fixed to the bottom) replaces the side rail and bottom bar; the gallery uses the
+  fixed one until R4. Home picks the page to keep coloring (most recent unfinished, else last read), the week
+  chart, new-sticker note, signposts, the Bookshop doorway and three pages on the fence; the greeting avatar
+  switches profile. Library: search and page-status filters on the paper sign, books on the middle shelf
+  (stickers, Premium lock, "More books soon" slots while there are 3 or fewer), pages on the bottom shelf; both
+  shelves scroll sideways when full. Book page: cover on the stand, Pacifico title card with chips, two-tone
+  page progress, "Open the book" in the book's accent, "Color a page" for the next unfinished page, taped pages
+  along the desk edge. Reader: desk scene, clay arrows and buttons in the book's accent, page pill, sound
+  button, fireplace switch with a warm glow, thumbnails on rainbow washi tape. Fixed: cozy styles now sit in the
+  components layer so Tailwind utilities override them; pin group wrappers no longer swallow taps
+
+### Phase R4: My art and stickers ✅
+- My art on the fridge door: pictures held by magnets, filters, picture viewer ("Keep coloring", "Save picture"),
+  the "Finish a page and it hangs here" spot
+- Sticker album at a new `/stickers` route (moved out of the gallery): 12 stickers, the chosen one large with how to
+  earn it and progress
+- Built: My art is a contained fridge scene: title strip and pictures held by magnets (three spots on the door,
+  newest first, clay arrows page through older ones), status stickers, the dashed "Finish a page and it hangs
+  here" spot (links to the library while the fridge is empty), the latest two stickers stuck on the door linking
+  to the album, and Finished / Still coloring filters on the wall by the window. The paper picture viewer has
+  "Keep coloring" (or "Color it again") and "Save picture" (shows "Saved ✓"). `/stickers` is the album open on
+  the desk: progress on the left page with the chosen sticker large (how to earn it and how far along), all 12
+  on the right; it starts on the sticker the child is closest to and marks new stickers as seen. The Home
+  "Stickers" sign goes there; phones get stacked versions of both
+
+### Phase R5: Coloring studio ✅
+- Floating top bar: Book, title, % colored, Stay in lines, undo, redo, More, "I'm finished"
+- Page fits the screen height; pinch zoom and move (the existing viewport), plus move/zoom/fit buttons
+- Clay tool rack; the crayon, pencil tip, marker, brush, glitter, paint drop and dropper take the chosen color
+- Size and strength by press and slide: size becomes continuous within each tool's range (today: four steps),
+  remembered per child and per tool
+- Colors panel that tucks into a tab; More menu (drawing sounds, fireplace, left-handed mirrors the whole layout,
+  pencil only, clear page)
+- "You finished it!" celebration restyled
+- Tests for the size and strength mapping and the per-tool memory
+- Built: the studio sits on the desk scene. On tablets and computers the chrome is drawn at iPad size and scaled
+  to the window: floating top bar (Book, title with save status, % colored ring, Stay in lines switch, undo,
+  redo, More, "I'm finished"), the wooden rack of clay tools (`components/studio.tsx`; crayon, marker, paint,
+  fill, glitter, pencil tip and dropper take the chosen color; the chosen tool slides out), round Size and
+  Strength controls you press and slide (a little slider pops up; arrow keys and [ ] work), the colors panel
+  (book colors, recent, "Goes with it", any color, fill style) that tucks into a tab, and a zoom pill with
+  "Move the page", zoom out, fit and zoom in. Phones get a compact top bar, a tool tray along the bottom and the
+  colors as a sheet. Size is continuous within each tool's range and strength runs 15–100% in steps of 5, both
+  remembered per child and per tool (`coloring/tool-settings.ts`, prefs `toolSettings`; 10 tests); the tucked
+  panel is remembered per child too. More menu: drawing sounds, fireplace, left-handed (mirrors rack, panel,
+  zoom and slide direction), pencil only, clear page with an inline "Clear it / Keep it". The celebration is a
+  taped paper card with the page on a magnet, a "New sticker" card when one was just earned, then Next page,
+  "Hang it on the fridge", Back to the book and Keep coloring. Strength stays off for glitter and the eraser,
+  because the engine always draws those at full strength. Fixed along the way: the page stays mounted when the
+  layout switches (rotating an iPad no longer loses the canvas), and the studio can't be scrolled sideways.
+  Removed the old `coloring-ui.tsx`
+
+### Phase R6: Grown-ups and finishing ✅
+- PIN gate, Grown-ups page (children, plan, emails, account, change parent PIN), a child's insights report, 404
+- Owner console light refresh
+- Pass over every screen on iPad (both ways), desktop and phone; reduced motion, contrast, screen reader labels;
+  offline precache size; scene pictures loaded per screen
+- Built: `GrownupsFrame` puts every grown-ups screen on the sage desk scene with a clay back button. PIN gate: a
+  taped paper card with the navy lock and the "Forgot it?" note. Grown-ups: "Your children" (avatar, PIN lock,
+  last opened, this week, Insights and Edit for each), Add a profile, the family's books, then Plan (chip and
+  days left), Emails (clay switches), Account (change parent PIN, sign out) on a second paper card; columns
+  stack on narrow screens. A child's report is one big paper card of boxes: this week, all-time tiles, books
+  with crayon progress, recent pictures, favorite colors and tools, stickers. 404 is a taped note in the
+  village. Owner console: the new fonts and warm colors carry over and its headings were softened (not checked
+  in the browser: there is no test owner). Offline cache 5.8 → 5.3 MB: only the 1200 px scenes are cached up
+  front; the 2000 px ones are cached when first shown and sit over the 1200 px copy, so screens keep their
+  picture offline. Every clay tone's text passes 4.5:1 (the closest is sky at 4.58); motion already stops
+  for reduced motion. Checked desktop, iPad both ways and phone
+
+### Review pass (after R6) ✅
+- Code review and a WCAG 2.2 AA audit (two parallel reviewers), then fixes, checked on phone (both ways), iPad (both
+  ways), laptop and desktop with an automated overlap/target-size check on every screen.
+- Bugs fixed: phone layouts couldn't scroll past the first screen (PIN keys, Save, Continue unreachable); the
+  studio's iPad layout covered the page on upright tablets; slider pop-ups and the More menu ran off phone screens;
+  "Clear page?" stuck open; the celebration's new sticker was announced again on Home; Library and Home empty
+  states; tab-bar current page for screen readers; scene pictures now refresh in the background; the dev server
+  no longer exits when an idle database connection drops.
+- Studio: new wood-desk background (`plate-studio.webp`); sideways phones get a side tool tray; Redo moves into
+  More on narrow phones; Size and Strength are real sliders (arrow keys, Home/End) and a tap opens − / + and a
+  tappable track, so no dragging is needed.
+- Accessibility: Space and Enter press buttons again (studio shortcuts only fire with nothing focused), dialogs
+  and the colors sheet keep focus inside and give it back, buttons stay focusable while busy, focus moves sensibly
+  after menus, tucks and swapped content, one `<main>` and an `<h1>` per screen, announcements for toasts, page
+  position, PIN steps and notices, readable tool labels and scene text, color names instead of hex codes, arrow
+  keys in radio groups, a "Falling snow" switch in Grown-ups, and grown-ups screens stay unlocked while in use.
+
+Each phase is checked in the browser, this file is updated, then work stops for review. Nothing is committed unless asked.
+
 ## Ideas for later (coloring)
 Time-lapse replay and video export, stickers and stamps on pages, color-by-number, real-time co-coloring,
 symmetry tool, cloud sync (Supabase) so families share progress across devices.

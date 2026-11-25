@@ -6,7 +6,7 @@ export type FillMode = 'solid' | 'shade' | 'rainbow'
 export interface ToolSpec {
   id: ToolId
   label: string
-  /** Line widths in page pixels for a 1600 px wide page: small, medium, large, extra large. */
+  /** Reference line widths in page pixels for a 1600 px wide page; sizes[defaultSize] is where each tool starts. */
   sizes: number[]
   defaultSize: number
   /** Width multiplier at lightest and firmest Apple Pencil / stylus pressure. */
@@ -39,11 +39,9 @@ export function isTapTool(t: ToolId): boolean {
   return t === 'fill' || t === 'picker'
 }
 
-/** Width in canvas pixels for a tool, size step and page width. */
-export function toolWidth(tool: ToolId, sizeIndex: number, pageWidth: number): number {
-  const spec = TOOLS[tool]
-  const base = spec.sizes[Math.max(0, Math.min(spec.sizes.length - 1, sizeIndex))] ?? 10
-  return base * (pageWidth / 1600)
+/** Width in canvas pixels for a size (page pixels at 1600 px wide) on a page this wide. */
+export function toolWidth(size: number, pageWidth: number): number {
+  return size * (pageWidth / 1600)
 }
 
 export const FILL_MODES: Array<{ id: FillMode; label: string }> = [
